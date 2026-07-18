@@ -5,62 +5,83 @@
     </style>
 
     <!-- region Material3 Styles -->
+    <!-- LIGHT-STYLE PASS: "Akkurat" is a best-effort literal family-name
+         lookup against whatever fonts are registered on the device. It's a
+         no-op fallback to the platform default if that exact name isn't
+         registered (e.g. on this dev emulator), only verifiable for real
+         on actual Light Phone III hardware. -->
     <style name="Signal.Text.HeadlineLarge" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="android:fontFamily">Akkurat</item>
         <item name="android:lineSpacingExtra">8sp</item>
     </style>
 
     <style name="Signal.Text.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:fontFamily">Akkurat</item>
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
     <style name="Signal.Text.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:fontFamily">Akkurat</item>
     </style>
 
     <style name="Signal.Text.TitleLarge" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">Akkurat</item>
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
     <style name="Signal.Text.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
-        <item name="fontFamily">sans-serif</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="fontFamily">Akkurat</item>
+        <item name="android:fontFamily">Akkurat</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">18sp</item>
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
     <style name="Signal.Text.TitleSmall" parent="TextAppearance.Material3.TitleSmall">
+        <item name="android:fontFamily">Akkurat</item>
         <item name="android:textSize">16sp</item>
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
+    <!-- LIGHT-STYLE MINIMALISM PASS: sizes bumped above stock Material3 defaults
+         (BodyLarge 16->18, BodyMedium 14->16, BodySmall 13->14, LabelMedium
+         13->14) for the larger, more legible text Light's own UI favors. -->
     <style name="Signal.Text.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:fontFamily">Akkurat</item>
+        <item name="android:textSize">18sp</item>
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
     <style name="Signal.Text.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">Akkurat</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
     <style name="Signal.Text.BodySmall" parent="TextAppearance.Material3.BodySmall">
-        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">Akkurat</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:lineSpacingExtra">3sp</item>
     </style>
 
     <style name="Signal.Text.MaterialCaption" parent="Signal.Text.BodySmall">
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:lineSpacingExtra">4sp</item>
     </style>
 
     <style name="Signal.Text.LabelLarge" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:fontFamily">Akkurat</item>
         <item name="android:lineSpacingExtra">6sp</item>
     </style>
 
     <style name="Signal.Text.LabelMedium" parent="TextAppearance.Material3.LabelMedium">
-        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">Akkurat</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:lineSpacingExtra">3sp</item>
     </style>
 
     <style name="Signal.Text.LabelSmall" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:fontFamily">Akkurat</item>
         <item name="android:lineSpacingExtra">4sp</item>
     </style>
 

@@ -1,4 +1,13 @@
-# Molly
+# Molly Light
+
+> **This is an unofficial personal fork of [Molly](https://github.com/mollyim/mollyim-android)**,
+> reskinned to match the minimal, distraction-free look and feel of the
+> [Light Phone III](https://www.thelightphone.com/). It is not affiliated with,
+> endorsed by, or sponsored by the Molly project, Signal Messenger, LLC, or the
+> Signal Foundation. It connects to Signal's servers the same way Molly and
+> Signal do, so it works with your existing Signal contacts and account. For
+> the official, actively-maintained app, see the upstream
+> [mollyim/mollyim-android](https://github.com/mollyim/mollyim-android) repo.
 
 [![Test](https://github.com/mollyim/mollyim-android/workflows/Test/badge.svg)](https://github.com/mollyim/mollyim-android/actions)
 [![Reproducible build](https://github.com/mollyim/mollyim-android/actions/workflows/reprocheck.yml/badge.svg)](https://github.com/mollyim/mollyim-android/actions/workflows/reprocheck.yml)

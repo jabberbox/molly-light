@@ -12,4 +12,5 @@
     android:paddingEnd="16dp"
     android:background="@color/transparent"
     android:singleLine="true"
+    android:textColor="?attr/colorOnSurface"
     tools:text="Peter Parker"/>

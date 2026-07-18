@@ -142,14 +142,26 @@ public class ConversationTitleView extends ConstraintLayout {
 
     title.setCompoundDrawablesRelativeWithIntrinsicBounds(startDrawable, null, endDrawable, null);
 
-    if (recipient != null) {
-      this.avatar.displayChatAvatar(requestManager, recipient, false, true);
-    }
+    // LIGHT-STYLE PASS: contact_photo_container (avatar + badge's shared
+    // parent) is permanently GONE in this reskin (no avatar in the Light
+    // reference). displayChatAvatar()/setBadgeFromRecipient() do real
+    // main-thread work (Glide request, recipient lookup) on every
+    // conversation open even though nothing here is ever drawn -- skip both
+    // when the container that would show them is hidden. A child view's own
+    // getVisibility() doesn't reflect an ancestor's GONE state, so the
+    // shared parent is checked directly.
+    boolean avatarContainerVisible = ((View) this.avatar.getParent()).getVisibility() != View.GONE;
 
-    if (recipient == null || recipient.isSelf()) {
-      badge.setBadgeFromRecipient(null);
-    } else {
-      badge.setBadgeFromRecipient(recipient);
+    if (avatarContainerVisible) {
+      if (recipient != null) {
+        this.avatar.displayChatAvatar(requestManager, recipient, false, true);
+      }
+
+      if (recipient == null || recipient.isSelf()) {
+        badge.setBadgeFromRecipient(null);
+      } else {
+        badge.setBadgeFromRecipient(recipient);
+      }
     }
 
     updateVerifiedSubtitleVisibility();

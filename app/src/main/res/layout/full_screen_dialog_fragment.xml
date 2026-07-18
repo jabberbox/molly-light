@@ -12,8 +12,9 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/signal_m3_toolbar_height"
         android:minHeight="@dimen/signal_m3_toolbar_height"
-        app:navigationIcon="@drawable/symbol_arrow_start_24"
+        app:navigationIcon="@drawable/light_ic_back"
         app:titleTextAppearance="@style/Signal.Text.TitleLarge"
+        app:titleTextColor="@color/molly_on_surface_dark"
         tools:title="Dialog Title" />
 
     <FrameLayout

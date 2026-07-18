@@ -108,7 +108,7 @@ public final class WallpaperCropActivity extends PassphraseRequiredActivity {
     Toolbar toolbar = findViewById(R.id.toolbar);
     setSupportActionBar(toolbar);
     ActionBar supportActionBar = Objects.requireNonNull(getSupportActionBar());
-    supportActionBar.setHomeAsUpIndicator(ContextCompat.getDrawable(this, org.signal.core.ui.R.drawable.symbol_arrow_start_24));
+    supportActionBar.setHomeAsUpIndicator(ContextCompat.getDrawable(this, org.signal.core.ui.R.drawable.light_ic_back));
     supportActionBar.setDisplayHomeAsUpEnabled(true);
 
     blur.setOnCheckedChangeListener((v, checked) -> viewModel.setBlur(checked));

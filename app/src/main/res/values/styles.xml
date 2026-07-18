@@ -85,23 +85,34 @@
         <item name="android:windowExitAnimation">@anim/text_entry_exit</item>
     </style>
 
-    <!-- ActionBar styles -->
+    <!-- ActionBar styles. LIGHT-STYLE MONOCHROME PASS: v2_conversation_fragment.xml
+         applies this style directly as android:theme= on its Toolbar, and since
+         stock ThemeOverlay.Material3 defines its own full M3 color role set, that
+         shadowed our app-wide colorOnSurface/colorSurface for the whole toolbar
+         subtree (title view, overflow popup) with Google's stock baseline instead
+         of ours, so explicit overrides here close that gap at the source. -->
     <style name="TextSecure.DarkActionBar" parent="@style/ThemeOverlay.Material3">
-        <item name="android:popupTheme">@style/ThemeOverlay.Material3.Dark</item>
+        <item name="android:popupTheme">@style/Signal.DayNight.Popup</item>
         <item name="actionOverflowMenuStyle">@style/Signal.DayNight.Popup.OverflowMenu</item>
         <item name="titleTextStyle">@style/Signal.Text.TitleLarge</item>
         <item name="subtitleTextStyle">@style/TextSecure.SubtitleTextStyle.Dark</item>
         <item name="android:actionOverflowButtonStyle">@style/Signal.Toolbar.Overflow</item>
         <item name="android:itemTextAppearance">@style/Signal.Text.BodyLarge</item>
+        <item name="colorSurface">@color/molly_surface_dark</item>
+        <item name="colorOnSurface">@color/molly_on_surface_dark</item>
+        <item name="colorOnSurfaceVariant">@color/molly_on_surface_variant_dark</item>
     </style>
 
     <style name="TextSecure.LightActionBar" parent="@style/ThemeOverlay.Material3">
-        <item name="android:popupTheme">@style/ThemeOverlay.Material3.Light</item>
+        <item name="android:popupTheme">@style/Signal.DayNight.Popup</item>
         <item name="actionOverflowMenuStyle">@style/Signal.DayNight.Popup.OverflowMenu</item>
         <item name="titleTextStyle">@style/Signal.Text.TitleLarge</item>
         <item name="subtitleTextStyle">@style/TextSecure.SubtitleTextStyle</item>
         <item name="android:actionOverflowButtonStyle">@style/Signal.Toolbar.Overflow.Light</item>
         <item name="android:itemTextAppearance">@style/Signal.Text.BodyLarge</item>
+        <item name="colorSurface">@color/molly_surface_light</item>
+        <item name="colorOnSurface">@color/molly_on_surface_light</item>
+        <item name="colorOnSurfaceVariant">@color/molly_on_surface_variant_light</item>
     </style>
 
     <style name="TextSecure.LightActionBar.Settings">

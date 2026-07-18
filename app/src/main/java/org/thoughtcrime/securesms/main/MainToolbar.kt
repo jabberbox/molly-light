@@ -711,19 +711,8 @@ private fun ChatDropdownItems(state: MainToolbarState, callback: MainToolbarCall
     )
   }
 
-  if (SignalStore.labs.starredMessages) {
-    DropdownMenus.Item(
-      text = {
-        Text(
-          text = stringResource(R.string.text_secure_normal__starred_messages)
-        )
-      },
-      onClick = {
-        callback.onStarredMessagesClick()
-        onOptionSelected()
-      }
-    )
-  }
+  // LIGHT-STYLE MINIMALISM PASS: dropped the "Starred messages (Labs)" entry --
+  // an explicitly experimental feature, not core to a minimal messaging flow.
 
   DropdownMenus.Item(
     text = {

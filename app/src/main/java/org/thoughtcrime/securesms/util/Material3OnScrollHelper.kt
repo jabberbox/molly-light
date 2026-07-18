@@ -41,9 +41,16 @@ open class Material3OnScrollHelper(
     }
   }
 
+  // LIGHT-STYLE PASS: this default made every screen's toolbar (and status
+  // bar) shift to a Material3 surface-container gray once its content
+  // scrolled -- visibly lighter than the app's solid black background.
+  // Matching the inactive color set keeps every header flat black at any
+  // scroll position, everywhere this class is used without its own
+  // override (ConversationToolbarOnScrollHelper already overrides this
+  // separately for the conversation screen specifically).
   open val activeColorSet: ColorSet = ColorSet.from(activity,
-    toolbarColorRes = MaterialR.attr.colorSurfaceContainer,
-    statusBarColorRes = MaterialR.attr.colorSurfaceContainer,
+    toolbarColorRes = MaterialR.attr.colorSurface,
+    statusBarColorRes = MaterialR.attr.colorSurface,
     chatFolderColorRes = MaterialR.attr.colorSurface
   )
   open val inactiveColorSet: ColorSet = ColorSet.from(activity,

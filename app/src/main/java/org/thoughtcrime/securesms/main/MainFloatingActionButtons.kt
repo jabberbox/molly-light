@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import org.signal.core.ui.compose.DayNightPreviews
 import org.signal.core.ui.compose.Previews
 import org.signal.core.ui.compose.SignalIcons
-import org.signal.core.ui.compose.theme.SignalTheme
 import org.thoughtcrime.securesms.R
 import org.thoughtcrime.securesms.window.NavigationType
 import kotlin.math.roundToInt
@@ -139,7 +139,7 @@ private fun BoxScope.SecondaryActionButton(
   }
 
   AnimatedVisibility(
-    visible = destination == MainNavigationListLocation.CHATS || destination == MainNavigationListLocation.ARCHIVE,
+    visible = destination == MainNavigationListLocation.CHATS || destination == MainNavigationListLocation.ARCHIVE || destination == MainNavigationListLocation.CALLS,
     modifier = Modifier.align(secondaryButtonAlignment),
     enter = slideInVertically(initialOffsetY = offsetYProvider),
     exit = slideOutVertically(targetOffsetY = offsetYProvider)
@@ -147,11 +147,10 @@ private fun BoxScope.SecondaryActionButton(
     val animatedElevation by transition.animateDp(targetValueByState = { if (it == EnterExitState.Visible) elevation else 0.dp })
 
     CameraButton(
+      // LIGHT-STYLE PASS: transparent, plain icon on black rather than a
+      // gray filled circle, matching the Light reference's icon-only style.
       colors = IconButtonDefaults.filledTonalIconButtonColors().copy(
-        containerColor = when (navigationType) {
-          NavigationType.RAIL -> MaterialTheme.colorScheme.surface
-          NavigationType.BAR -> SignalTheme.colors.colorSurface2
-        },
+        containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface
       ),
       onClick = {
@@ -229,7 +228,9 @@ private fun MainFloatingActionButton(
   icon: @Composable () -> Unit,
   modifier: Modifier = Modifier,
   shadowElevation: Dp = 4.dp,
-  colors: IconButtonColors = IconButtonDefaults.filledTonalIconButtonColors()
+  // LIGHT-STYLE PASS: transparent by default, matching the Light reference's
+  // icon-only style (was Material3's gray "filled tonal" container).
+  colors: IconButtonColors = IconButtonDefaults.filledTonalIconButtonColors().copy(containerColor = Color.Transparent)
 ) {
   FilledTonalIconButton(
     onClick = onClick,

@@ -325,6 +325,22 @@ object DateUtils : android.text.format.DateUtils() {
     return timestamp.toDateString("MMM d, yyyy", locale)
   }
 
+  /**
+   * LIGHT-STYLE PASS: matches the Light reference's per-message header
+   * (e.g. "Apr 28 9:01AM") -- always date + time together, no relative
+   * "Today"/"Yesterday" labels. Built by hand rather than through
+   * [toDateString]/[localizeTemplate] since that path inserts a locale-specific
+   * comma and a space before AM/PM that the reference format doesn't have.
+   */
+  @JvmStatic
+  fun formatDateWithTime(locale: Locale, timestamp: Long): String {
+    val dateTime = timestamp.toLocalDateTime()
+    val datePart = DateTimeFormatter.ofPattern("MMM d", locale).format(dateTime)
+    val hour12 = if (dateTime.hour % 12 == 0) 12 else dateTime.hour % 12
+    val amPm = if (dateTime.hour < 12) "AM" else "PM"
+    return String.format(locale, "%s %d:%02d%s", datePart, hour12, dateTime.minute, amPm)
+  }
+
   @JvmStatic
   fun formatDate(locale: Locale, timestamp: Long): String {
     return timestamp.toDateString("EEE, MMM d, yyyy", locale)

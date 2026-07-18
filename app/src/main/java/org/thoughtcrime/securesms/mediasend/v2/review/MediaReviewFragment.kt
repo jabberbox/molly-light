@@ -108,6 +108,7 @@ class MediaReviewFragment : Fragment(R.layout.v2_media_review_fragment), Schedul
   private lateinit var videoTimelinePlaceholder: View
   private lateinit var progress: ProgressBar
   private lateinit var progressWrapper: TouchInterceptingFrameLayout
+  private lateinit var closeButton: View
 
   private val exclusionZone = listOf(Rect())
   private val navigator = MediaSelectionNavigator(
@@ -158,6 +159,7 @@ class MediaReviewFragment : Fragment(R.layout.v2_media_review_fragment), Schedul
     videoTimeLine = view.findViewById(R.id.video_timeline)
     videoSizeHint = view.findViewById(R.id.video_size_hint)
     videoTimelinePlaceholder = view.findViewById(R.id.timeline_placeholder)
+    closeButton = view.findViewById(R.id.close)
 
     DrawableCompat.setTint(progress.indeterminateDrawable, Color.WHITE)
     progressWrapper.setOnInterceptTouchEventListener { true }
@@ -179,6 +181,10 @@ class MediaReviewFragment : Fragment(R.layout.v2_media_review_fragment), Schedul
       outRect.left = left
       outRect.right = right
       ViewCompat.setSystemGestureExclusionRects(v, exclusionZone)
+    }
+
+    closeButton.setOnClickListener {
+      callback.onPopFromReview()
     }
 
     drawToolButton.setOnClickListener {

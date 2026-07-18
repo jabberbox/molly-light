@@ -9,7 +9,8 @@
                 android:bottomRightRadius="@dimen/message_corner_radius"
                 android:topLeftRadius="@dimen/message_corner_collapse_radius"
                 android:topRightRadius="@dimen/message_corner_radius" />
-            <solid android:color="@color/white" />
+            <!-- LIGHT-STYLE PASS: transparent, no bubble, plain text only -->
+            <solid android:color="@android:color/transparent" />
         </shape>
     </item>
 </layer-list>

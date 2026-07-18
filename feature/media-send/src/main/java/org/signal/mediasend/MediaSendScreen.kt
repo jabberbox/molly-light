@@ -27,10 +27,17 @@ fun MediaSendScreen(
   onExternalHudCommand: (HudCommand) -> Unit = {}
 ) {
   val viewModel = viewModel<MediaSendViewModel>(factory = MediaSendViewModel.Factory(args = contractArgs))
+  val activity = LocalActivity.current
 
   LaunchedEffect(viewModel) {
     viewModel.hudCommands.collect { command ->
       onExternalHudCommand(command)
+    }
+  }
+
+  LaunchedEffect(viewModel, activity) {
+    viewModel.exitEvents.collect {
+      activity?.finish()
     }
   }
 

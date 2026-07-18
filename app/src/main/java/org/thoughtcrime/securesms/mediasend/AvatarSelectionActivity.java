@@ -197,6 +197,11 @@ public class AvatarSelectionActivity extends AppCompatActivity implements Camera
   public void onQrCodeFound(@NonNull String data) {
   }
 
+  @Override
+  public void onCloseClicked() {
+    finish();
+  }
+
   public boolean popToRoot() {
     final int backStackCount = getSupportFragmentManager().getBackStackEntryCount();
     if (backStackCount == 0) {

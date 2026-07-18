@@ -15,14 +15,28 @@
 
     <!-- MOLLY: Theme.Signal.DayNight.NoActionBar now in light_themes.xml -->
 
+    <!-- LIGHT-STYLE MONOCHROME PASS: matches molly_background_light/dark exactly
+         (both true black now that light/dark are unified) so the mandatory
+         Android 12+ splash window is indistinguishable from the app's own
+         background, effectively no splash "moment" rather than a distinct
+         branded screen.
+
+         android:windowBackground (not just windowSplashScreenBackground) is set
+         here too: this theme stays the Activity's live theme beyond the initial
+         splash phase (there's no postSplashScreenTheme switch-over), so it's also
+         what briefly shows before Compose's first frame draws on a warm resume
+         (switching back to the app from Recents), not just on a cold start. Without
+         it, that moment fell back to a default white background. -->
     <style name="Theme.Molly.Starting.Light" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/core_ultramarine_icon</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenBackground">@color/molly_background_light</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="android:windowBackground">@color/molly_background_light</item>
     </style>
 
     <style name="Theme.Molly.Starting.Dark" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/core_ultramarine_icon_dark</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenBackground">@color/molly_background_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="android:windowBackground">@color/molly_background_dark</item>
     </style>
 
     <style name="TextSecure.LightNoActionBar" parent="@style/TextSecure.BaseLightNoActionBar">
@@ -267,8 +281,8 @@
         <item name="android:windowContentOverlay">@null</item>
         <item name="alertDialogTheme">@style/ThemeOverlay.Signal.MaterialAlertDialog</item>
         <item name="android:alertDialogTheme">@style/ThemeOverlay.Signal.MaterialAlertDialog</item>
-        <item name="homeAsUpIndicator">@drawable/symbol_arrow_start_24</item>
-        <item name="android:homeAsUpIndicator">@drawable/symbol_arrow_start_24</item>
+        <item name="homeAsUpIndicator">@drawable/light_ic_back</item>
+        <item name="android:homeAsUpIndicator">@drawable/light_ic_back</item>
 
         <item name="settingsToolbarStyle">@style/TextSecure.LightActionBar.Settings</item>
 
@@ -308,7 +322,7 @@
         <item name="signal_background_dialog_secondary">?attr/colorSurfaceContainerLow</item>
         <item name="signal_text_primary">?attr/colorOnSurface</item>
         <item name="signal_text_secondary">?attr/colorOnSurfaceVariant</item>
-        <item name="signal_text_toolbar_title">?attr/colorSurface</item>
+        <item name="signal_text_toolbar_title">?attr/colorOnSurface</item>
         <item name="signal_icon_tint_primary">?attr/colorOnSurface</item>
         <item name="signal_icon_tint_secondary">?attr/colorOnSurfaceVariant</item>
         <item name="signal_icon_tint_action">@color/core_black</item>
@@ -386,8 +400,10 @@
         <item name="context_menu_container_color">@color/molly_surface_container_light</item>
 
         <!-- MainNavigation.kt -->
-        <item name="navbar_active_indicator_color">@color/molly_secondary_container_light</item>
-        <item name="navbar_container_color">@color/molly_surface_container_light</item>
+        <!-- LIGHT-STYLE PASS: no gray bar or pill indicator, matching the
+             Light reference's plain icons directly on black. -->
+        <item name="navbar_active_indicator_color">@android:color/transparent</item>
+        <item name="navbar_container_color">@color/molly_background_light</item>
     </style>
 
     <style name="TextSecure.DarkTheme" parent="@style/TextSecure.BaseDarkTheme">
@@ -426,7 +442,7 @@
 
         <item name="actionBarStyle">@style/TextSecure.DarkActionBar</item>
         <item name="actionBarTabBarStyle">@style/TextSecure.DarkActionBar.TabBar</item>
-        <item name="actionBarPopupTheme">@style/ThemeOverlay.Material3.Dark</item>
+        <item name="actionBarPopupTheme">@style/Theme.Molly.Material3.Dark</item>
         <item name="actionModeBackground">@color/transparent</item>
         <item name="actionModeCloseDrawable">@drawable/ic_x_tinted</item>
         <item name="actionModeStyle">@style/TextSecure.ActionModeStyle</item>
@@ -437,8 +453,8 @@
         <item name="android:windowContentOverlay">@null</item>
         <item name="alertDialogTheme">@style/ThemeOverlay.Signal.MaterialAlertDialog</item>
         <item name="android:alertDialogTheme">@style/ThemeOverlay.Signal.MaterialAlertDialog</item>
-        <item name="homeAsUpIndicator">@drawable/symbol_arrow_start_24</item>
-        <item name="android:homeAsUpIndicator">@drawable/symbol_arrow_start_24</item>
+        <item name="homeAsUpIndicator">@drawable/light_ic_back</item>
+        <item name="android:homeAsUpIndicator">@drawable/light_ic_back</item>
 
         <item name="settingsToolbarStyle">@style/TextSecure.DarkActionBar.Settings</item>
 
@@ -560,8 +576,10 @@
         <item name="context_menu_container_color">@color/molly_surface_container_high_dark</item>
 
         <!-- MainNavigation.kt -->
-        <item name="navbar_active_indicator_color">@color/molly_surface_bright_dark</item>
-        <item name="navbar_container_color">@color/molly_surface_container_dark</item>
+        <!-- LIGHT-STYLE PASS: no gray bar or pill indicator, matching the
+             Light reference's plain icons directly on black. -->
+        <item name="navbar_active_indicator_color">@android:color/transparent</item>
+        <item name="navbar_container_color">@color/molly_background_dark</item>
     </style>
 
     <style name="Theme.Signal.AlertDialog.Light.Cornered" parent="MaterialAlertDialog.Material3">
@@ -818,10 +836,17 @@
         <item name="android:textAppearance">@style/Signal.Text.LabelLarge</item>
     </style>
 
+    <!-- LIGHT-STYLE MONOCHROME PASS: stock ThemeOverlay.MaterialComponents parent
+         supplies its own dim/unthemed text color for the EditText wrapped by this
+         overlay (Your Name, story name, etc.), same fix pattern as the toolbar's
+         actionBarStyle and TextInputLayout bugs. -->
     <style name="ThemeOverlay.Signal.EditProfileInput" parent="ThemeOverlay.MaterialComponents">
         <item name="colorAccent">?attr/signal_accent_primary</item>
         <item name="colorControlNormal">?attr/signal_accent_primary</item>
         <item name="colorControlHighlight">?attr/signal_accent_primary</item>
         <item name="colorControlActivated">?attr/signal_accent_primary</item>
+        <item name="colorOnSurface">@color/molly_on_surface_dark</item>
+        <item name="android:textColorPrimary">@color/molly_on_surface_dark</item>
+        <item name="android:textColorSecondary">@color/molly_on_surface_variant_dark</item>
     </style>
 </resources>

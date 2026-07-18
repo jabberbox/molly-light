@@ -171,6 +171,10 @@ class MediaCaptureFragment : Fragment(R.layout.fragment_container), CameraFragme
     viewModel.onQrCodeFound(data)
   }
 
+  override fun onCloseClicked() {
+    requireActivity().finish()
+  }
+
   override fun getMediaConstraints(): MediaConstraints {
     return sharedViewModel.getMediaConstraints()
   }

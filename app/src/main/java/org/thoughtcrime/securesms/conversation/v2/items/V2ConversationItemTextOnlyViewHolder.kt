@@ -17,7 +17,6 @@ import android.text.style.CharacterStyle
 import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.URLSpan
-import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -48,6 +47,7 @@ import org.thoughtcrime.securesms.keyvalue.SignalStore
 import org.thoughtcrime.securesms.recipients.Recipient
 import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.util.InterceptableLongClickCopyLinkSpan
+import org.thoughtcrime.securesms.util.LightFont
 import org.thoughtcrime.securesms.util.LongClickMovementMethod
 import org.thoughtcrime.securesms.util.MAX_BODY_DISPLAY_LENGTH
 import org.thoughtcrime.securesms.util.PlaceholderURLSpan
@@ -173,8 +173,8 @@ open class V2ConversationItemTextOnlyViewHolder<Model : MappingModel<Model>>(
     }
 
     binding.body.isFocusable = false
-    binding.body.setTextSize(TypedValue.COMPLEX_UNIT_SP, SignalStore.settings.messageFontSize.toFloat())
     binding.body.movementMethod = LongClickMovementMethod.getInstance(context)
+    LightFont.regular()?.let { binding.body.typeface = it }
 
     if (binding.isIncoming) {
       binding.body.setMentionBackgroundTint(ContextCompat.getColor(context, if (ThemeUtil.isDarkTheme(context)) R.color.core_grey_60 else R.color.core_grey_20))
@@ -269,14 +269,11 @@ open class V2ConversationItemTextOnlyViewHolder<Model : MappingModel<Model>>(
     presentSender()
     presentReactions()
 
+    // LIGHT-STYLE PASS: always transparent, matching the Light reference's
+    // plain-text (no bubble) message rendering. This reuses Signal's own
+    // existing jumbomoji no-bubble path rather than introducing a new one.
     bodyBubbleDrawable.setCorners(shapeDelegate.cornersLTR)
-    if (binding.body.isJumbomoji) {
-      bodyBubbleDrawable.setLocalChatColors(transparentChatColors)
-    } else if (binding.isIncoming) {
-      bodyBubbleDrawable.setLocalChatColors(ChatColors.forColor(ChatColors.Id.NotSet, themeDelegate.getBodyBubbleColor(conversationMessage)))
-    } else {
-      bodyBubbleDrawable.clearLocalChatColors()
-    }
+    bodyBubbleDrawable.setLocalChatColors(transparentChatColors)
 
     binding.reply.setBackgroundColor(themeDelegate.getReplyIconBackgroundColor())
 
@@ -760,32 +757,36 @@ open class V2ConversationItemTextOnlyViewHolder<Model : MappingModel<Model>>(
       binding.footerDate.setText(R.string.ConversationItem_send_paused)
     } else if (record.isScheduled()) {
       binding.footerDate.text = conversationMessage.computedProperties.formattedDate.value
-    } else {
+    } else if (conversationContext.displayMode != ConversationItemDisplayMode.Detailed && record is MmsMessageRecord && record.isEditMessage) {
       var dateLabel = conversationMessage.computedProperties.formattedDate.value
       var dateLabelContentDesc = conversationMessage.computedProperties.formattedDate.contentDescValue
-      if (conversationContext.displayMode != ConversationItemDisplayMode.Detailed && record is MmsMessageRecord && record.isEditMessage) {
-        if (conversationMessage.computedProperties.formattedDate.isNow) {
-          dateLabel = getContext().getString(R.string.ConversationItem_edited_now_timestamp_footer)
-          dateLabelContentDesc = dateLabel
-        } else if (conversationMessage.computedProperties.formattedDate.isRelative) {
-          dateLabel = getContext().getString(R.string.ConversationItem_edited_relative_timestamp_footer, dateLabel)
-          dateLabelContentDesc = getContext().getString(R.string.ConversationItem_edited_relative_timestamp_footer, dateLabelContentDesc)
-        } else {
-          dateLabel = getContext().getString(R.string.ConversationItem_edited_absolute_timestamp_footer, dateLabel)
-          dateLabelContentDesc = getContext().getString(R.string.ConversationItem_edited_absolute_timestamp_footer, dateLabelContentDesc)
-        }
+      if (conversationMessage.computedProperties.formattedDate.isNow) {
+        dateLabel = getContext().getString(R.string.ConversationItem_edited_now_timestamp_footer)
+        dateLabelContentDesc = dateLabel
+      } else if (conversationMessage.computedProperties.formattedDate.isRelative) {
+        dateLabel = getContext().getString(R.string.ConversationItem_edited_relative_timestamp_footer, dateLabel)
+        dateLabelContentDesc = getContext().getString(R.string.ConversationItem_edited_relative_timestamp_footer, dateLabelContentDesc)
+      } else {
+        dateLabel = getContext().getString(R.string.ConversationItem_edited_absolute_timestamp_footer, dateLabel)
+        dateLabelContentDesc = getContext().getString(R.string.ConversationItem_edited_absolute_timestamp_footer, dateLabelContentDesc)
+      }
 
-        binding.footerDate.setOnClickListener {
-          if (conversationContext.selectedItems.isEmpty()) {
-            conversationContext.clickListener.onEditedIndicatorClicked(conversationMessage)
-          } else {
-            conversationContext.clickListener.onItemClick(getMultiselectPartForLatestTouch())
-          }
+      binding.footerDate.setOnClickListener {
+        if (conversationContext.selectedItems.isEmpty()) {
+          conversationContext.clickListener.onEditedIndicatorClicked(conversationMessage)
+        } else {
+          conversationContext.clickListener.onItemClick(getMultiselectPartForLatestTouch())
         }
       }
 
       binding.footerDate.text = dateLabel
       binding.footerDate.contentDescription = dateLabelContentDesc
+    } else {
+      // LIGHT-STYLE PASS: the plain send time is now shown once, in the cluster
+      // header above (see ConversationItemDecorations), so repeating it here next
+      // to the checkmark would just be noise. Every other branch above still
+      // shows its text since those carry status beyond just "what time was this."
+      binding.footerDate.visible = false
     }
   }
 

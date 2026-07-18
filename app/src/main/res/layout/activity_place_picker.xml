@@ -95,4 +95,20 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- LIGHT-STYLE PASS: some devices (e.g. Light Phone) have no system back
+         button/gesture, so this full-screen map needs its own in-app way out. -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/place_picker_close_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="15dp"
+        android:layout_marginTop="15dp"
+        android:background="?selectableItemBackgroundBorderless"
+        android:contentDescription="@string/PlacePickerActivity_close"
+        android:padding="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/symbol_x_24"
+        app:tint="@color/core_white" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

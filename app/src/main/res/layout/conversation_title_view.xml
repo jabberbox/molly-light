@@ -9,6 +9,9 @@
     android:gravity="center_vertical"
     tools:layout_height="@dimen/signal_m3_toolbar_height">
 
+    <!-- LIGHT-STYLE PASS: no avatar in the conversation header in the Light
+         reference (just a centered/plain title), gone not removed so
+         ConversationTitleView.java's existing setter code stays intact. -->
     <FrameLayout
         android:transitionName="avatar"
         android:id="@+id/contact_photo_container"
@@ -16,6 +19,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
         android:layout_marginTop="3dp"
+        android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
@@ -51,14 +55,13 @@
         app:layout_constraintStart_toEndOf="@id/contact_photo_container"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/subtitle_container"
-        app:layout_constraintVertical_chainStyle="packed"
-        app:layout_constraintHorizontal_bias="0"
-        android:layout_marginStart="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
         android:drawablePadding="3dp"
         android:ellipsize="end"
         android:gravity="center_vertical"
         android:maxLines="1"
+        android:textColor="?attr/colorOnSurface"
         android:transitionName="recipient_name"
         tools:ignore="UnusedAttribute"
         tools:text="J. Jonah Jameson" />

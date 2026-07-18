@@ -34,6 +34,7 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.FragmentActivity
 import org.signal.core.ui.compose.ComposeFullScreenDialogFragment
 import org.signal.core.ui.compose.Dividers
+import org.signal.core.ui.compose.Scaffolds
 import org.signal.core.util.Util
 import org.thoughtcrime.securesms.database.model.MessageRecord
 import org.thoughtcrime.securesms.messagedetails.InternalMessageDetailsViewModel.AttachmentInfo
@@ -63,92 +64,98 @@ class InternalMessageDetailsFragment : ComposeFullScreenDialogFragment() {
     val state by viewModel.state
 
     state?.let {
-      Content(it)
+      Content(it, onBack = { dismissAllowingStateLoss() })
     }
   }
 }
 
 @Composable
-private fun Content(state: ViewState) {
+private fun Content(state: ViewState, onBack: () -> Unit) {
   val context = LocalContext.current
 
-  Surface(
-    modifier = Modifier
-      .fillMaxSize()
-  ) {
-    Column(
-      modifier = Modifier.verticalScroll(rememberScrollState())
+  Scaffolds.Default(
+    onNavigationClick = onBack,
+    navigationIconRes = org.signal.core.ui.R.drawable.light_ic_back
+  ) { paddingValues ->
+    Surface(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(paddingValues)
     ) {
-      Text(
-        text = "Message Details",
-        style = MaterialTheme.typography.headlineSmall,
-        modifier = Modifier
-          .padding(8.dp)
-          .fillMaxWidth()
-      )
-      ClickToCopyRow(
-        name = "MessageId",
-        value = state.id.toString()
-      )
-      ClickToCopyRow(
-        name = "Sent Timestamp",
-        value = state.sentTimestamp.toString()
-      )
-      ClickToCopyRow(
-        name = "Received Timestamp",
-        value = state.receivedTimestamp.toString()
-      )
-
-      val serverTimestampString = if (state.serverSentTimestamp <= 0L) {
-        "N/A"
-      } else {
-        state.serverSentTimestamp.toString()
-      }
-
-      ClickToCopyRow(
-        name = "Server Sent Timestamp",
-        value = serverTimestampString
-      )
-      DetailRow(
-        name = "To",
-        value = state.to.toString(),
-        onClick = {
-          val fragmentManager = (context as FragmentActivity).supportFragmentManager
-          RecipientBottomSheetDialogFragment.show(fragmentManager, state.to, null)
-        }
-      )
-      DetailRow(
-        name = "From",
-        value = state.from.toString(),
-        onClick = {
-          val fragmentManager = (context as FragmentActivity).supportFragmentManager
-          RecipientBottomSheetDialogFragment.show(fragmentManager, state.from, null)
-        }
-      )
-
-      Spacer(modifier = Modifier.height(8.dp))
-
-      Text(
-        text = "Attachments",
-        style = MaterialTheme.typography.headlineSmall,
-        modifier = Modifier
-          .padding(8.dp)
-          .fillMaxWidth()
-      )
-
-      if (state.attachments.isEmpty()) {
+      Column(
+        modifier = Modifier.verticalScroll(rememberScrollState())
+      ) {
         Text(
-          text = "None",
+          text = "Message Details",
+          style = MaterialTheme.typography.headlineSmall,
           modifier = Modifier
             .padding(8.dp)
             .fillMaxWidth()
         )
-      } else {
-        state.attachments.forEachIndexed { i, attachment ->
-          AttachmentBlock(attachment)
+        ClickToCopyRow(
+          name = "MessageId",
+          value = state.id.toString()
+        )
+        ClickToCopyRow(
+          name = "Sent Timestamp",
+          value = state.sentTimestamp.toString()
+        )
+        ClickToCopyRow(
+          name = "Received Timestamp",
+          value = state.receivedTimestamp.toString()
+        )
 
-          if (i != state.attachments.lastIndex) {
-            Dividers.Default()
+        val serverTimestampString = if (state.serverSentTimestamp <= 0L) {
+          "N/A"
+        } else {
+          state.serverSentTimestamp.toString()
+        }
+
+        ClickToCopyRow(
+          name = "Server Sent Timestamp",
+          value = serverTimestampString
+        )
+        DetailRow(
+          name = "To",
+          value = state.to.toString(),
+          onClick = {
+            val fragmentManager = (context as FragmentActivity).supportFragmentManager
+            RecipientBottomSheetDialogFragment.show(fragmentManager, state.to, null)
+          }
+        )
+        DetailRow(
+          name = "From",
+          value = state.from.toString(),
+          onClick = {
+            val fragmentManager = (context as FragmentActivity).supportFragmentManager
+            RecipientBottomSheetDialogFragment.show(fragmentManager, state.from, null)
+          }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+          text = "Attachments",
+          style = MaterialTheme.typography.headlineSmall,
+          modifier = Modifier
+            .padding(8.dp)
+            .fillMaxWidth()
+        )
+
+        if (state.attachments.isEmpty()) {
+          Text(
+            text = "None",
+            modifier = Modifier
+              .padding(8.dp)
+              .fillMaxWidth()
+          )
+        } else {
+          state.attachments.forEachIndexed { i, attachment ->
+            AttachmentBlock(attachment)
+
+            if (i != state.attachments.lastIndex) {
+              Dividers.Default()
+            }
           }
         }
       }
@@ -226,7 +233,7 @@ private fun AttachmentBlock(attachment: AttachmentInfo) {
 @Composable
 private fun ContentPreview() {
   Content(
-    ViewState(
+    state = ViewState(
       id = 1,
       sentTimestamp = 2,
       receivedTimestamp = 3,
@@ -234,6 +241,7 @@ private fun ContentPreview() {
       to = RecipientId.from(1),
       from = RecipientId.from(2),
       attachments = emptyList()
-    )
+    ),
+    onBack = {}
   )
 }

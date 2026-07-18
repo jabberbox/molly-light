@@ -7,8 +7,10 @@ package org.thoughtcrime.securesms.conversation.v2
 
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
@@ -20,10 +22,10 @@ import org.thoughtcrime.securesms.database.MessageTypes
 import org.thoughtcrime.securesms.database.model.MmsMessageRecord
 import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.util.DateUtils
+import org.thoughtcrime.securesms.util.LightFont
 import org.thoughtcrime.securesms.util.adapter.mapping.MappingModel
 import org.thoughtcrime.securesms.util.drawAsTopItemDecoration
 import org.thoughtcrime.securesms.util.layoutIn
-import org.thoughtcrime.securesms.util.toLocalDate
 import java.util.Locale
 import kotlin.math.max
 import org.signal.core.ui.R as CoreUiR
@@ -91,7 +93,7 @@ class ConversationItemDecorations(hasWallpaper: Boolean = false, private val sch
     }
 
     val dateHeaderHeight = if (hasHeader(position)) {
-      getHeader(parent, currentItems[position] as ConversationMessageElement).height
+      getHeader(parent, position).height
     } else {
       0
     }
@@ -120,7 +122,7 @@ class ConversationItemDecorations(hasWallpaper: Boolean = false, private val sch
       }
 
       if (hasHeader(bindingAdapterPosition)) {
-        val headerView = getHeader(parent, currentItems[bindingAdapterPosition] as ConversationMessageElement).itemView
+        val headerView = getHeader(parent, bindingAdapterPosition).itemView
         headerView.drawAsTopItemDecoration(c, parent, child, unreadOffset)
       }
     }
@@ -219,32 +221,18 @@ class ConversationItemDecorations(hasWallpaper: Boolean = false, private val sch
       null
     }
 
-    if (model == null || model !is ConversationMessageElement) {
-      return false
-    }
-
-    val previousPosition = bindingAdapterPosition + 1
-    val previousDay: Long
-    if (previousPosition in currentItems.indices) {
-      val previousModel = currentItems[previousPosition]
-      if (previousModel == null || previousModel !is ConversationMessageElement) {
-        return true
-      } else {
-        previousDay = previousModel.toEpochDay()
-      }
-    } else {
-      return false
-    }
-
-    val result = model.toEpochDay() != previousDay
-    return result
+    // LIGHT-STYLE PASS: matches the Light reference, where every message gets
+    // its own date + time header, not just the first message of a cluster/day.
+    return model is ConversationMessageElement
   }
 
   /**
-   * Creates a header view for the provided [ConversationMessageElement] and caches it for future use.
+   * Creates a header view for the item at [bindingAdapterPosition] and caches it for future use.
    */
-  private fun getHeader(parent: RecyclerView, model: ConversationMessageElement): DateHeaderViewHolder {
-    val headerHolder: DateHeaderViewHolder = headerCache.getOrPut(model.toEpochDay()) {
+  private fun getHeader(parent: RecyclerView, bindingAdapterPosition: Int): DateHeaderViewHolder {
+    val model = currentItems[bindingAdapterPosition] as ConversationMessageElement
+
+    val headerHolder: DateHeaderViewHolder = headerCache.getOrPut(model.conversationMessage.messageRecord.id) {
       val view = LayoutInflater.from(parent.context).inflate(R.layout.conversation_item_header, parent, false)
       val holder = DateHeaderViewHolder(view)
       holder.bind(model)
@@ -274,19 +262,28 @@ class ConversationItemDecorations(hasWallpaper: Boolean = false, private val sch
     }
   }
 
-  private fun ConversationMessageElement.toEpochDay(): Long {
-    return timestamp().toLocalDate().toEpochDay()
-  }
-
   private inner class DateHeaderViewHolder(val itemView: View) {
     private val date = itemView.findViewById<TextView>(R.id.text)
 
     val height: Int
       get() = itemView.height
 
+    init {
+      LightFont.regular()?.let { date.typeface = it }
+    }
+
     fun bind(model: ConversationMessageElement) {
-      val dateText = DateUtils.getConversationDateHeaderString(itemView.context, Locale.getDefault(), model.timestamp())
-      date.text = dateText
+      // LIGHT-STYLE PASS: every message shows its own combined date + time
+      // header (e.g. "Apr 28 9:01AM"), matching the Light reference, instead of
+      // the stock "Today"/"Yesterday" relative labels. The header sits directly
+      // above its message, so it takes on that message's side: end-aligned for
+      // outgoing, start-aligned for incoming, rather than centered.
+      date.text = DateUtils.formatDateWithTime(Locale.getDefault(), model.timestamp())
+
+      val gravity = if (model.conversationMessage.messageRecord.isOutgoing) Gravity.END else Gravity.START
+      (date.layoutParams as LinearLayout.LayoutParams).gravity = gravity
+      date.requestLayout()
+
       updateForWallpaper()
     }
 

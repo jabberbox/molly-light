@@ -7,7 +7,6 @@ package org.thoughtcrime.securesms.registration.ui.restore
 
 import android.os.Bundle
 import android.view.View
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -129,7 +128,9 @@ class EnterBackupKeyFragment : ComposeFragment() {
               findNavController().safeNavigate(EnterBackupKeyFragmentDirections.goToEnterPhoneNumber(EnterPhoneNumberMode.RESTART_AFTER_COLLECTION))
             },
             onDismiss = { showSkipRestoreWarning = false },
-            confirmColor = MaterialTheme.colorScheme.error,
+            // LIGHT-STYLE PASS: see SelectRestoreMethodFragment.kt -- was colorScheme.error
+            // (the one un-monochromed color role), which read as washed-out on the LP3's
+            // B&W display. Falls back to the theme default (near-white) instead.
             properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
           )
         }

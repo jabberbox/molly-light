@@ -78,7 +78,7 @@ fun VerifyDisplayScreen(
 
   Scaffolds.Default(
     title = stringResource(R.string.AndroidManifest__verify_safety_number),
-    navigationIconRes = CoreUiR.drawable.symbol_arrow_start_24,
+    navigationIconRes = CoreUiR.drawable.light_ic_back,
     onNavigationClick = { backPressedDispatcher?.onBackPressed() }
   ) {
     Column(

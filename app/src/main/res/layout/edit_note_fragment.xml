@@ -13,7 +13,7 @@
         android:layout_height="@dimen/signal_m3_toolbar_height"
         android:minHeight="@dimen/signal_m3_toolbar_height"
         app:layout_constraintTop_toTopOf="parent"
-        app:navigationIcon="@drawable/symbol_arrow_start_24"
+        app:navigationIcon="@drawable/light_ic_back"
         app:title="@string/CreatePaymentFragment__add_note"
         app:titleTextAppearance="@style/Signal.Text.TitleLarge" />
 
@@ -27,7 +27,8 @@
         android:imeOptions="actionDone"
         android:inputType="text|textCapSentences"
         android:maxLength="40"
-        android:singleLine="true" />
+        android:singleLine="true"
+        android:textColor="?attr/colorOnSurface" />
 
     <TextView
         android:id="@+id/character_count"

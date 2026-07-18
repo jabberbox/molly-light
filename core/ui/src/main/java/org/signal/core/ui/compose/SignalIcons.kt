@@ -31,7 +31,12 @@ import org.signal.core.ui.R
  * Signal icon library with all available icons.
  */
 enum class SignalIcons(private val icon: SignalIcon) : SignalIcon by icon {
-  ArrowStart(icon(R.drawable.symbol_arrow_start_24)),
+  // LIGHT-STYLE PASS: simpler back arrow (no horizontal shaft line) than
+  // the stock Material symbol_arrow_start_24, matching the icon used on the
+  // conversation screen's toolbar and compose header. This single token
+  // change covers every Compose screen using SignalIcons.ArrowStart as its
+  // back/up navigation icon.
+  ArrowStart(icon(R.drawable.light_ic_back)),
   ArrowEnd(icon(R.drawable.symbol_arrow_end_24)),
   At(icon(R.drawable.symbol_at_24)),
   Backup(icon(R.drawable.symbol_backup_24)),

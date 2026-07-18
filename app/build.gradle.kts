@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -74,13 +77,23 @@ android {
   android.bundle.language.enableSplit = false
 
   signingConfigs {
-    System.getenv("CI_KEYSTORE_PATH")?.let { path ->
+    // LIGHT-STYLE PASS: falls back to RELEASE_KEYSTORE_* in local.properties (gitignored,
+    // never committed) when the CI_KEYSTORE_* env vars aren't set, so local release builds
+    // can be signed with a dedicated keystore without exporting env vars every time.
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+      FileInputStream(localPropertiesFile).use { stream -> localProperties.load(stream) }
+    }
+    val releaseKeystorePath = System.getenv("CI_KEYSTORE_PATH") ?: localProperties.getProperty("RELEASE_KEYSTORE_PATH")
+
+    releaseKeystorePath?.let { path ->
       create("ci") {
         println("Signing release build with keystore: '$path'")
         storeFile = file(path)
-        storePassword = System.getenv("CI_KEYSTORE_PASSWORD")
-        keyAlias = System.getenv("CI_KEYSTORE_ALIAS")
-        keyPassword = System.getenv("CI_KEYSTORE_PASSWORD")
+        storePassword = System.getenv("CI_KEYSTORE_PASSWORD") ?: localProperties.getProperty("RELEASE_KEYSTORE_PASSWORD")
+        keyAlias = System.getenv("CI_KEYSTORE_ALIAS") ?: localProperties.getProperty("RELEASE_KEYSTORE_ALIAS")
+        keyPassword = System.getenv("CI_KEYSTORE_PASSWORD") ?: localProperties.getProperty("RELEASE_KEYSTORE_PASSWORD")
         enableV4Signing = false
       }
     }
@@ -277,7 +290,12 @@ android {
 
     create("website") {
       dimension = "distribution"
-      buildConfigField("boolean", "MANAGE_MOLLY_UPDATES", "true")
+      // LIGHT-STYLE PASS: this used to be "true" (checks Molly's own real F-Droid-style
+      // update feed and tries to auto-install what it finds). Molly Light has a different
+      // package ID and signing key, so a real Molly update would never install correctly
+      // over it, and leaving this on means periodically hitting Molly's own update
+      // infrastructure under a fork they don't know about, for no functional benefit.
+      buildConfigField("boolean", "MANAGE_MOLLY_UPDATES", "false")
       isDefault = true
     }
 

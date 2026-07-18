@@ -102,6 +102,13 @@ class MediaSendViewModel(
   private val internalSnackbarEvents: Channel<SnackbarEvent> = Channel(Channel.BUFFERED)
   internal val snackbarEvents: Flow<SnackbarEvent> = internalSnackbarEvents.receiveAsFlow()
 
+  // LIGHT-STYLE PASS: lets the camera screen's close button (see StandardCameraHud)
+  // exit the whole flow even when Capture is the sole/root backstack entry, which
+  // popping the backstack alone can't do -- needed since some devices (e.g. Light
+  // Phone) have no system back button/gesture to fall back on.
+  private val internalExitEvents: Channel<Unit> = Channel(Channel.BUFFERED)
+  internal val exitEvents: Flow<Unit> = internalExitEvents.receiveAsFlow()
+
   internal val usernameScannedDialog = DialogController<String>()
   internal val linkedDeviceScannedDialog = DialogController<Unit>()
 
@@ -240,6 +247,9 @@ class MediaSendViewModel(
       is CameraXScreenEvent.QrCodeFound -> qrCheckRequest.trySend(event.data)
       CameraXScreenEvent.VideoCaptureError -> {
         internalSnackbarEvents.trySend(SnackbarEvent(message = R.string.MediaSendViewModel__error_recording_video))
+      }
+      CameraXScreenEvent.CloseClicked -> {
+        internalExitEvents.trySend(Unit)
       }
     }
   }

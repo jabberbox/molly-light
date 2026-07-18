@@ -93,12 +93,14 @@ class V2FooterPositionDelegate private constructor(
       return false
     }
 
-    val availableWidth = maxWidth - lastLineWidth - (horizontalFooterPadding * 2)
-    if (body.lineCount == 1 && availableWidth > (footerWidth + 8.dp)) {
-      displayAtEndOfBody()
-      return true
-    }
-
+    // LIGHT-STYLE PASS: previously, single-line messages with room to spare
+    // tucked the footer (checkmark/pin/star) into the end of the line by
+    // reserving right-side padding on the body text. Since that padding varies
+    // with whatever footer content happens to be visible per-message (often
+    // nothing at all now that the plain timestamp lives in the cluster header),
+    // it made sent/received text drift left or right inconsistently between
+    // messages. Footer content always renders on its own row underneath now,
+    // so every message's text lines up flush regardless of its footer.
     displayUnderneathBody()
     return true
   }
@@ -119,21 +121,6 @@ class V2FooterPositionDelegate private constructor(
     displayState = DisplayState.UNDERNEATH
   }
 
-  private fun displayAtEndOfBody() {
-    if (displayState == DisplayState.END) {
-      return
-    }
-
-    val (left, right) = if (bodyContainer.layoutDirection == View.LAYOUT_DIRECTION_LTR) {
-      0 to (getFooterWidth() - 8.dp)
-    } else {
-      (getFooterWidth() - 8.dp) to 0
-    }
-
-    body.padding(right = right, left = left, bottom = 0)
-    displayState = DisplayState.END
-  }
-
   private fun displayTuckedIntoBody() {
     if (displayState == DisplayState.TUCKED) {
       return
@@ -150,7 +137,6 @@ class V2FooterPositionDelegate private constructor(
   private enum class DisplayState {
     NONE,
     UNDERNEATH,
-    END,
     TUCKED
   }
 }

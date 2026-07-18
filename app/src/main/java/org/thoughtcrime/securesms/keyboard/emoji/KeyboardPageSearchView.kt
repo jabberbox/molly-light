@@ -113,9 +113,9 @@ class KeyboardPageSearchView @JvmOverloads constructor(
   fun showRequested(): Boolean = state == State.SHOW_REQUESTED
 
   fun enableBackNavigation(enable: Boolean = true) {
-    navButton.setImageResource(if (enable) CoreUiR.drawable.symbol_arrow_start_24 else R.drawable.ic_search_24)
+    navButton.setImageResource(if (enable) CoreUiR.drawable.light_ic_back else R.drawable.ic_search_24)
     if (enable) {
-      navButton.setImageResource(CoreUiR.drawable.symbol_arrow_start_24)
+      navButton.setImageResource(CoreUiR.drawable.light_ic_back)
       navButton.setOnClickListener { callbacks?.onNavigationClicked() }
     } else {
       navButton.setImageResource(R.drawable.ic_search_24)

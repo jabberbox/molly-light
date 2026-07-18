@@ -425,7 +425,13 @@ public class ConversationListFragment extends MainFragment implements Conversati
     list.setLayoutManager(new LinearLayoutManager(requireActivity()));
     list.setItemAnimator(itemAnimator);
     list.addItemDecoration(archiveDecoration);
-    CachedInflater.from(list.getContext()).clear();
+    // LIGHT-PERF PASS: this used to unconditionally wipe CachedInflater's whole view
+    // cache on every list-view creation (i.e. every return from a conversation), which
+    // also nukes the message-bubble views onFirstRender() below warms up ahead of time.
+    // CachedInflater already invalidates itself correctly on real config changes
+    // (CachedInflater.java pull()/cacheUntilLimit()), so this was only ever discarding a
+    // still-valid, still-useful cache and forcing the next conversation open to pay full
+    // synchronous inflate cost per message bubble instead of pulling a pre-warmed view.
     CachedInflater.from(list.getContext()).cacheUntilLimit(R.layout.conversation_list_item_view, list, 10);
 
     snapToTopDataObserver = new SnapToTopDataObserver(list);

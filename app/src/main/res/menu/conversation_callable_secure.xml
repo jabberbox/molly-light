@@ -8,10 +8,7 @@
           app:iconTint="?attr/signal_icon_tint_primary"
           app:showAsAction="always" />
 
-    <item android:title="@string/conversation_callable_secure__menu_call"
-          android:id="@+id/menu_call_secure"
-          android:icon="@drawable/ic_phone_right_24"
-          app:iconTint="?attr/signal_icon_tint_primary"
-          app:showAsAction="always" />
+    <!-- LIGHT-STYLE PASS: audio call now lives on the resting bottom bar
+         (conversation_light_action_bar.xml) instead of duplicating it here. -->
 
 </menu>

@@ -231,7 +231,9 @@ class RemoteRestoreActivity : BaseActivity() {
                 }
               },
               onDismiss = { showSkipRestoreWarning = false },
-              confirmColor = MaterialTheme.colorScheme.error,
+              // LIGHT-STYLE PASS: see SelectRestoreMethodFragment.kt -- was colorScheme.error
+              // (the one un-monochromed color role), which read as washed-out on the LP3's
+              // B&W display. Falls back to the theme default (near-white) instead.
               properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
             )
           }

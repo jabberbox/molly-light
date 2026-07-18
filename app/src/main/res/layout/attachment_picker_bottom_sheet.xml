@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+LIGHT-STYLE PASS: half-screen attachment picker shown from the resting bottom
+bar's plus icon, matching the Light reference: just camera / gallery / audio
+message, plus a chevron to dismiss. Icons are the actual Light SDK assets,
+scaled up to match a caliper measurement taken against physical Light Phone
+III hardware (roughly a 1.5x scale-up over our previous icon sizes).
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/core_black">
+
+    <LinearLayout
+        android:id="@+id/attachment_picker_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@id/attachment_picker_dismiss"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.5">
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/attachment_picker_camera"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginHorizontal="20dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/conversation_activity__quick_attachment_drawer_toggle_camera_description"
+            android:padding="20dp"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/light_ic_camera"
+            app:tint="?attr/colorOnSurface" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/attachment_picker_gallery"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginHorizontal="20dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/ConversationActivity_add_attachment"
+            android:padding="20dp"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/light_ic_media"
+            app:tint="?attr/colorOnSurface" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/attachment_picker_audio"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginHorizontal="20dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/conversation_activity__quick_attachment_drawer_record_and_send_audio_description"
+            android:padding="20dp"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/light_ic_audio_message"
+            app:tint="?attr/colorOnSurface" />
+
+    </LinearLayout>
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/attachment_picker_dismiss"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginBottom="20dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/GroupMemberLabel__accessibility_close_screen"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@drawable/light_ic_down"
+        app:tint="?attr/colorOnSurfaceVariant" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

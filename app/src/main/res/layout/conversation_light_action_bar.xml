@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+LIGHT-STYLE PASS: replaces the stock always-visible text composer row with the
+Light reference's resting-state bottom bar: just three icons (call, add
+attachment, compose). No text box is shown until the pencil icon is tapped.
+Icons are the actual Light SDK assets (light_ic_call/add/compose). Sizing has
+been through two calibration passes against physical Light Phone III hardware
+(caliper measurements); 32dp glyphs (~5.6mm) is the current app-wide uniform
+icon size.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/light_action_bar"
+    android:layout_width="match_parent"
+    android:layout_height="76dp"
+    android:background="?attr/signal_background_primary">
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/light_action_bar_call"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/conversation_activity__call_button_content_description"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/light_ic_call"
+        app:tint="?attr/colorOnSurface" />
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/light_action_bar_attach"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/ConversationActivity_add_attachment"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/light_ic_add"
+        app:tint="?attr/colorOnSurface" />
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/light_action_bar_compose"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginEnd="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/conversation_activity__compose_description"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/light_ic_compose"
+        app:tint="?attr/colorOnSurface" />
+
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/light_action_bar_resting_group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:constraint_referenced_ids="light_action_bar_call,light_action_bar_attach,light_action_bar_compose" />
+
+    <!-- LIGHT-STYLE PASS: replaces the resting row while a voice message
+         started from the attachment sheet is being recorded. Mirrors the
+         resting row's 3-slot layout: cancel (discard, no send) at start,
+         timer centered, stop-and-send at end. -->
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/light_action_bar_recording_cancel"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/conversation_activity__cancel_recording_description"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/symbol_x_24"
+        app:tint="?attr/colorOnSurface" />
+
+    <!-- Live elapsed-time counter (e.g. "0:02"), ticked from
+         ConversationFragment.kt rather than static text, so there's a
+         visible sign the recording is actually progressing. No
+         pulsing/blinking indicator by design; the Light reference doesn't
+         use one for its own messaging. -->
+    <TextView
+        android:id="@+id/light_action_bar_recording_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/conversation_activity__quick_attachment_drawer_record_and_send_audio_description"
+        android:textAppearance="@style/Signal.Text.BodyLarge"
+        android:textColor="?attr/colorOnSurface"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="0:02"
+        tools:visibility="visible" />
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/light_action_bar_recording_stop"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginEnd="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/conversation_activity__stop_and_send_recording_description"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/symbol_stop_24"
+        app:tint="?attr/colorOnSurface" />
+
+    <!-- A ConstraintLayout Group applies its OWN visibility to every
+         referenced view on layout, overriding whatever visibility those
+         views declared individually; without this explicit "gone" here,
+         the group (defaulting to visible) was forcing the cancel/label/stop
+         views visible on every layout pass regardless of their own
+         android:visibility="gone", rendering on top of the resting
+         call/attach/compose icons. -->
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/light_action_bar_recording_group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:constraint_referenced_ids="light_action_bar_recording_cancel,light_action_bar_recording_label,light_action_bar_recording_stop" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

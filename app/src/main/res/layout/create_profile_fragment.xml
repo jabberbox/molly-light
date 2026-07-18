@@ -31,7 +31,7 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:navigationIcon="@drawable/symbol_arrow_start_24"
+                    app:navigationIcon="@drawable/light_ic_back"
                     app:title="@string/CreateProfileActivity__profile" />
 
                 <TextView
@@ -152,7 +152,8 @@
                             android:layout_weight="1"
                             android:autofillHints="personGivenName"
                             android:inputType="textPersonName"
-                            android:singleLine="true" />
+                            android:singleLine="true"
+                            android:textColor="?attr/colorOnSurface" />
                     </com.google.android.material.textfield.TextInputLayout>
 
 
@@ -187,7 +188,8 @@
                             android:layout_weight="1"
                             android:autofillHints="personFamilyName"
                             android:inputType="textPersonName"
-                            android:singleLine="true" />
+                            android:singleLine="true"
+                            android:textColor="?attr/colorOnSurface" />
 
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>

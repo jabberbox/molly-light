@@ -53,16 +53,19 @@ import androidx.annotation.MainThread
 import androidx.annotation.StringRes
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.SearchView
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
+import androidx.core.view.doOnNextLayout
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
@@ -628,6 +631,18 @@ class ConversationFragment :
   private val searchNav: ConversationSearchBottomBar
     get() = binding.conversationSearchBottomBar.root
 
+  // LIGHT-STYLE PASS: resting bottom bar (call/attach/compose) shown instead of
+  // the stock always-visible text composer; see conversation_light_action_bar.xml.
+  private val lightActionBar: View
+    get() = binding.conversationLightActionBar.root
+
+  // LIGHT-STYLE PASS: full-screen compose-mode header (back/contact/send),
+  // shown in place of the normal toolbar while composing.
+  private val composeHeader: View
+    get() = binding.conversationComposeHeader.root
+
+  private var isComposeModeActive = false
+
   private val actionModeTopBarView: ActionModeTopBarView
     get() = binding.actionModeTopBar
 
@@ -1170,21 +1185,29 @@ class ConversationFragment :
         conversationItemDecorations.setUnreadState(state.meta.unreadCount, state.meta.firstUnreadId)
         colorizer.onGroupMembershipChanged(state.meta.groupMemberAcis)
       }
+      // LIGHT-PERF PASS: this used to have a second `.observeOn(AndroidSchedulers.mainThread())`
+      // hop here just to run updateMessageRequestAcceptedState()/moveToStartPosition() before
+      // subscribing to items.data (which itself needs its own hop back to main, since it's fed
+      // by the paging controller's background executor). Measured on real hardware (LP3, via
+      // temporary System.currentTimeMillis() logging around each stage): each observeOn hop was
+      // separately costing 150-250ms of main-thread Looper queueing delay -- the LP3's OS
+      // launcher process sustains ~250% CPU continuously (confirmed via dumpsys cpuinfo), so any
+      // posted Runnable, including RxJava's thread-hop dispatch, has to wait its turn. Folding
+      // the one-time setup into the single remaining hop (gated on firstRender, same pattern
+      // already used below for the metrics/render-finish calls) halves the number of times this
+      // conversation-open path pays that queueing tax.
+      .flatMapObservable { state -> state.items.data.map { state to it } }
       .observeOn(AndroidSchedulers.mainThread())
-      .doOnSuccess { state ->
-        updateMessageRequestAcceptedState(state.meta.messageRequestData.isMessageRequestAccepted)
-        moveToStartPosition(state.meta)
-      }
-      .flatMapObservable { it.items.data }
-      .observeOn(AndroidSchedulers.mainThread())
-      .subscribeBy(onNext = {
+      .subscribeBy(onNext = { (state, items) ->
         if (firstRender) {
           SignalLocalMetrics.ConversationOpen.onDataPostedToMain()
+          updateMessageRequestAcceptedState(state.meta.messageRequestData.isMessageRequestAccepted)
+          moveToStartPosition(state.meta)
         }
 
-        adapter.submitList(it) {
+        adapter.submitList(items) {
           scrollToPositionDelegate.notifyListCommitted()
-          conversationItemDecorations.currentItems = it
+          conversationItemDecorations.currentItems = items
 
           if (firstRender) {
             firstRender = false
@@ -1314,6 +1337,40 @@ class ConversationFragment :
     }
     binding.conversationInputPanel.attachButton.setOnClickListener(attachListener)
     binding.conversationInputPanel.inlineAttachmentButton.setOnClickListener(attachListener)
+
+    // LIGHT-STYLE PASS: resting bottom bar (call/attach/compose) wiring.
+    binding.conversationLightActionBar.lightActionBarCall.setOnClickListener {
+      handleAudioCall()
+    }
+    binding.conversationLightActionBar.lightActionBarAttach.setOnClickListener {
+      AttachmentPickerBottomSheetDialogFragment().show(childFragmentManager, AttachmentPickerBottomSheetDialogFragment.TAG)
+    }
+    binding.conversationLightActionBar.lightActionBarCompose.setOnClickListener {
+      enterComposeMode()
+    }
+    binding.conversationLightActionBar.lightActionBarRecordingStop.setOnClickListener {
+      stopAudioRecordingFromSheet()
+    }
+    binding.conversationLightActionBar.lightActionBarRecordingCancel.setOnClickListener {
+      cancelAudioRecordingFromSheet()
+    }
+    childFragmentManager.setFragmentResultListener(
+      AttachmentPickerBottomSheetDialogFragment.RESULT_KEY,
+      viewLifecycleOwner,
+      AttachmentPickerBottomSheetDialogFragmentListener()
+    )
+
+    // LIGHT-STYLE PASS: full-screen compose header wiring.
+    binding.conversationComposeHeader.composeHeaderBack.setOnClickListener {
+      exitComposeMode()
+    }
+    binding.conversationComposeHeader.composeHeaderSend.setOnClickListener {
+      if (inputPanel.inEditMessageMode()) {
+        handleSendEditMessage()
+      } else {
+        sendMessage(afterSendComplete = { exitComposeMode() })
+      }
+    }
 
     presentGroupCallJoinButton()
 
@@ -1812,24 +1869,45 @@ class ConversationFragment :
 
   private fun updateNavigationIconForNormal(isFullScreenPane: Boolean) {
     if (!resources.isSplitPane() || isFullScreenPane) {
-      binding.toolbar.setNavigationIcon(CoreUiR.drawable.symbol_arrow_start_24)
-      binding.toolbar.navigationIcon?.setTint(
+      // LIGHT-STYLE PASS: the Toolbar's built-in navigation icon scales and
+      // positions the drawable using its own internal logic (nav icons are
+      // measured/centered against an implicit slot size we don't control),
+      // which never quite lined up pixel-for-pixel with the compose
+      // header's back button no matter what inset was applied to the icon
+      // drawable itself -- attempts landed the position right but left the
+      // icon a hair smaller. A real ImageButton (toolbar_back_button) built
+      // to the exact same spec (56dp/12dp margin/12dp padding/fitCenter) as
+      // the compose header's back button sidesteps the Toolbar's internal
+      // sizing entirely, so it's pixel-identical by construction.
+      binding.toolbar.navigationIcon = null
+      binding.toolbarBackButton.visible = true
+      binding.toolbarBackButton.setImageDrawable(
+        ContextCompat.getDrawable(requireContext(), R.drawable.light_ic_back)
+      )
+      binding.toolbarBackButton.setColorFilter(
         ThemeUtil.getThemedColor(
           requireContext(),
           if (viewModel.wallpaperSnapshot != null) CoreUiR.color.signal_colorNeutralInverse else MaterialR.attr.colorOnSurfaceVariant
         )
       )
-      binding.toolbar.setNavigationContentDescription(R.string.ConversationFragment__content_description_back_button)
-      binding.toolbar.setNavigationOnClickListener {
+      binding.toolbarBackButton.contentDescription = getString(R.string.ConversationFragment__content_description_back_button)
+      binding.toolbarBackButton.setOnClickListener {
         binding.root.hideKeyboard(composeText)
         requireActivity().onBackPressedDispatcher.onBackPressed()
       }
+      // LIGHT-STYLE PASS: with no Toolbar-native navigation icon anymore,
+      // contentInsetStart (not the WithNavigation variant) governs the
+      // start inset. 76dp matches the compose header's back/send button
+      // footprint (56dp button + 12dp margin + 8dp title margin) on both
+      // sides, so the centered title lands on the exact same point in both
+      // screens.
       binding.toolbar.setContentInsetsRelative(
-        46.dp,
-        binding.toolbar.contentInsetEnd
+        76.dp,
+        76.dp
       )
     } else {
       binding.toolbar.navigationIcon = null
+      binding.toolbarBackButton.visible = false
       binding.toolbar.setContentInsetsRelative(
         24.dp,
         binding.toolbar.contentInsetEnd
@@ -1838,6 +1916,7 @@ class ConversationFragment :
   }
 
   private fun presentNavigationIconForBubble() {
+    binding.toolbarBackButton.visible = false
     binding.toolbar.navigationIcon = DrawableUtil.tint(
       requireContext().requireDrawable(R.drawable.ic_notification),
       ThemeUtil.getThemedColor(requireContext(), R.attr.signal_accent_primary)
@@ -2112,6 +2191,15 @@ class ConversationFragment :
       )
   }
 
+  // LIGHT-STYLE PASS: extracted so the new bottom bar's call icon can trigger
+  // the same audio-call flow as the (still-present) toolbar menu item.
+  private fun handleAudioCall() {
+    val recipient: Recipient = viewModel.recipientSnapshot ?: return
+    CommunicationActions.startVoiceCall(this@ConversationFragment, recipient) {
+      YouAreAlreadyInACallSnackbar.show(requireView())
+    }
+  }
+
   private fun handleVideoCall() {
     val recipient = viewModel.recipientSnapshot ?: return
     if (!recipient.isGroup) {
@@ -2247,10 +2335,11 @@ class ConversationFragment :
     ) {
       Log.d(TAG, "Updated message matches original, exiting edit mode")
       inputPanel.exitEditMessageMode()
+      exitComposeMode()
       return
     }
 
-    sendMessage()
+    sendMessage(afterSendComplete = { exitComposeMode() })
   }
 
   private fun getVoiceNoteMediaController() = requireListener<VoiceNoteMediaControllerOwner>().voiceNoteMediaController
@@ -2386,7 +2475,10 @@ class ConversationFragment :
     val keyboardMode: TextSecurePreferences.MediaKeyboardMode = TextSecurePreferences.getMediaKeyboardMode(requireContext())
 
     keyboardPagerViewModel.resetPages()
-    inputPanel.showMediaKeyboardToggle(true)
+    // LIGHT-STYLE PASS: no emoji/sticker keyboard toggle icon in the
+    // full-screen compose surface -- keep the compose header's back/send
+    // arrows as the only chrome.
+    inputPanel.showMediaKeyboardToggle(false)
 
     val keyboardPage = when (keyboardMode) {
       TextSecurePreferences.MediaKeyboardMode.EMOJI -> KeyboardPage.EMOJI
@@ -2454,6 +2546,21 @@ class ConversationFragment :
         }
       }
     }
+
+    // LIGHT-STYLE PASS: the inline camera/mic/attach/send cluster is replaced
+    // by the resting bottom bar and the compose-mode header's send arrow --
+    // force it hidden regardless of what the state machine above requested.
+    // clearAnimation() is required, not just the visibility override: show()/hide()
+    // above start a legacy View.Animation, and a view with an active attached
+    // Animation can still get drawn by its parent for the animation's duration even
+    // after setVisibility(GONE) -- that's what caused the brief mic/camera flash
+    // when text transitioned back to empty (e.g. backspacing the last character).
+    buttonToggle.clearAnimation()
+    quickAttachment.clearAnimation()
+    inlineAttachment.clearAnimation()
+    buttonToggle.visibility = View.GONE
+    quickAttachment.visibility = View.GONE
+    inlineAttachment.visibility = View.GONE
   }
 
   private fun sendSticker(
@@ -3017,7 +3124,7 @@ class ConversationFragment :
       conversationMessage.messageRecord.getRecordQuoteType()
     )
 
-    inputPanel.clickOnComposeInput()
+    enterComposeMode()
   }
 
   private fun handleEditMessage(conversationMessage: ConversationMessage) {
@@ -3036,8 +3143,139 @@ class ConversationFragment :
     viewModel.resolveMessageToEdit(conversationMessage)
       .subscribeBy { updatedMessage ->
         inputPanel.enterEditModeIfPossible(Glide.with(this), updatedMessage, false, false)
+        enterComposeMode()
       }
       .addTo(disposables)
+  }
+
+  /**
+   * LIGHT-STYLE PASS: enters the full-screen compose surface (pencil icon, or
+   * Reply/Edit on a message) -- hides the resting bottom bar and toolbar,
+   * shows a full-screen scrim plus [InputPanel] (at its normal compact size)
+   * and swaps in [composeHeader]. The scrim (not the message list itself)
+   * covers the conversation: toggling the RecyclerView's own visibility
+   * races a Compose-side "first render" gate in the ChatsNavigation host and
+   * leaves the whole screen painted black until some unrelated layout pass
+   * fixes it, and a runtime ConstraintSet resize of InputPanel to fill that
+   * space directly didn't take visible effect despite the mutated
+   * LayoutParams reading back correctly -- both dead ends, so a plain
+   * match_parent scrim (mirroring the already-working reactions_shade
+   * pattern) does the covering instead.
+   */
+  private fun enterComposeMode() {
+    if (isComposeModeActive) {
+      composeText.requestFocus()
+      ViewUtil.focusAndShowKeyboard(composeText)
+      return
+    }
+    isComposeModeActive = true
+
+    // LIGHT-STYLE PASS: captured before the toolbar is hidden below --
+    // getLocationOnScreen() on a just-hidden (GONE) or just-shown
+    // (previously-GONE, not yet laid out) view returns stale/zero
+    // coordinates, so both measurements have to happen while the toolbar is
+    // still in its normal, already-laid-out state. See the content-zone
+    // matching block further down for why this is needed at all.
+    val toolbarLocation = IntArray(2)
+    binding.toolbar.getLocationOnScreen(toolbarLocation)
+    val toolbarWidth = binding.toolbar.width
+    val toolbarContentZone = binding.conversationTitleView.root
+    val zoneLocation = IntArray(2)
+    toolbarContentZone.getLocationOnScreen(zoneLocation)
+    val toolbarContentZoneWidth = toolbarContentZone.width
+
+    lightActionBar.visible = false
+    binding.toolbar.visible = false
+    binding.toolbarBackButton.visible = false
+    binding.conversationBannerFrame.visible = false
+    binding.conversationComposeScrim.visible = true
+    inputPanel.visible = true
+    composeHeader.visible = true
+
+    // LIGHT-STYLE PASS: InputPanel.setWallpaperEnabled() unconditionally
+    // re-applies a pill-shaped background drawable to compose_bubble, which
+    // would override the @null default set in conversation_input_panel.xml
+    // for the bare-cursor look -- strip it again every time compose mode opens.
+    binding.conversationInputPanel.composeBubble.background = null
+
+    // LIGHT-STYLE PASS: reuse the toolbar's already-rendered title text
+    // (rather than re-deriving it from recipientSnapshot) so compose mode
+    // shows the exact same content -- e.g. "Note to Self". The verified
+    // checkmark badge isn't part of the text at all -- ConversationTitleView
+    // attaches it as a compound drawable (setCompoundDrawablesRelative) --
+    // so it has to be copied separately, or the name text ends up sitting
+    // off-center in the toolbar (shifted to make room for the icon) while
+    // compose's badge-free text centers dead-on, producing a visible shift
+    // when switching between the two.
+    val toolbarTitle = binding.conversationTitleView.title
+    binding.conversationComposeHeader.composeHeaderTitle.text = toolbarTitle.text
+    // constantState.newDrawable() gets an independent copy rather than the
+    // same instance the toolbar is using -- setCompoundDrawablesRelative
+    // mutates the drawable's bounds, and two views sharing one Drawable
+    // instance would fight over those bounds.
+    binding.conversationComposeHeader.composeHeaderTitle.setCompoundDrawablesRelativeWithIntrinsicBounds(
+      toolbarTitle.compoundDrawablesRelative[0]?.constantState?.newDrawable(resources),
+      null,
+      toolbarTitle.compoundDrawablesRelative[2]?.constantState?.newDrawable(resources),
+      null
+    )
+    binding.conversationComposeHeader.composeHeaderTitle.compoundDrawablePadding = toolbarTitle.compoundDrawablePadding
+
+    // LIGHT-STYLE PASS: the toolbar's available content width varies per
+    // conversation -- a 1:1 chat's menu (video call + overflow) reserves
+    // more space than Note to Self's (overflow only), so a fixed assumed
+    // inset on the compose header only lined up for whichever conversation
+    // it was tuned against. Matching compose's title to the toolbar's actual
+    // measured content zone makes this correct for every conversation,
+    // regardless of which menu items happen to be showing. compose_header
+    // and the toolbar both span the exact same horizontal region (both
+    // constrained to parent_start_guideline/parent_end_guideline in
+    // v2_conversation_fragment.xml), so the toolbar's own bounds double as
+    // compose_header_title's parent frame -- no need to also measure
+    // compose_header itself, which would be unreliable here anyway since
+    // it's only just been made visible for the first time above.
+    if (toolbarContentZoneWidth > 0 && toolbarWidth > 0) {
+      val marginStartPx = zoneLocation[0] - toolbarLocation[0]
+      val marginEndPx = (toolbarLocation[0] + toolbarWidth) - (zoneLocation[0] + toolbarContentZoneWidth)
+
+      binding.conversationComposeHeader.composeHeaderTitle.updateLayoutParams<ConstraintLayout.LayoutParams> {
+        startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+        startToEnd = ConstraintLayout.LayoutParams.UNSET
+        endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+        endToStart = ConstraintLayout.LayoutParams.UNSET
+        marginStart = marginStartPx
+        marginEnd = marginEndPx
+      }
+    }
+
+    binding.root.doOnNextLayout {
+      composeText.requestFocus()
+      ViewUtil.focusAndShowKeyboard(composeText)
+    }
+  }
+
+  /** LIGHT-STYLE PASS: leaves the full-screen compose surface, discarding any unsent text. */
+  private fun exitComposeMode() {
+    if (!isComposeModeActive) {
+      return
+    }
+    isComposeModeActive = false
+
+    if (inputPanel.inEditMessageMode()) {
+      inputPanel.exitEditMessageMode()
+    }
+    inputPanel.clearQuote()
+    composeText.setText("")
+
+    binding.root.hideKeyboard(composeText)
+
+    composeHeader.visible = false
+    inputPanel.visible = false
+    binding.conversationComposeScrim.visible = false
+    binding.toolbar.visible = true
+    binding.conversationBannerFrame.visible = true
+    lightActionBar.visible = true
+    updateNavigationIconForNormal(mainNavigationViewModel.isFullScreenPane.value)
   }
 
   private fun handleForwardMessageParts(messageParts: Set<MultiselectPart>) {
@@ -4234,10 +4472,7 @@ class ConversationFragment :
     }
 
     override fun handleDial() {
-      val recipient: Recipient = viewModel.recipientSnapshot ?: return
-      CommunicationActions.startVoiceCall(this@ConversationFragment, recipient) {
-        YouAreAlreadyInACallSnackbar.show(requireView())
-      }
+      this@ConversationFragment.handleAudioCall()
     }
 
     override fun handleViewMedia() {
@@ -4900,10 +5135,12 @@ class ConversationFragment :
     override fun onRecorderFinished() {
       updateToggleButtonState()
       voiceMessageRecordingDelegate.onRecorderFinished()
+      resetAudioRecordingBar()
     }
 
     override fun onRecorderCanceled(byUser: Boolean) {
       voiceMessageRecordingDelegate.onRecorderCanceled(byUser)
+      resetAudioRecordingBar()
     }
 
     override fun onRecorderSaveDraft() {
@@ -5083,6 +5320,74 @@ class ConversationFragment :
 
       container.hideInput()
     }
+  }
+
+  // LIGHT-STYLE PASS: dispatches results from the new resting-bar plus-icon
+  // sheet (camera/gallery/audio), mirroring AttachmentKeyboardFragmentListener
+  // above but for the new bottom-sheet entry point.
+  private inner class AttachmentPickerBottomSheetDialogFragmentListener : FragmentResultListener {
+    override fun onFragmentResult(requestKey: String, result: Bundle) {
+      val recipient = viewModel.recipientSnapshot ?: return
+      val action = result.getSerializable(AttachmentPickerBottomSheetDialogFragment.ACTION_RESULT) as? AttachmentPickerBottomSheetDialogFragment.Action ?: return
+
+      when (action) {
+        AttachmentPickerBottomSheetDialogFragment.Action.CAMERA -> conversationActivityResultContracts.launchCamera(recipient.id, inputPanel.quote.isPresent)
+        AttachmentPickerBottomSheetDialogFragment.Action.GALLERY -> conversationActivityResultContracts.launchGallery(recipient.id, composeText.textTrimmed, inputPanel.quote.isPresent)
+        AttachmentPickerBottomSheetDialogFragment.Action.AUDIO -> startAudioRecordingFromSheet()
+      }
+    }
+  }
+
+  private var recordingStartTimeMs: Long = 0L
+
+  // LIGHT-STYLE PASS: live elapsed-time counter for the sheet-triggered
+  // recording flow, mirroring InputPanel's own internal RecordTime (which
+  // isn't visible here since InputPanel's view stays hidden for this tap
+  // flow). Self-rescheduling Runnable so the same instance can be canceled
+  // via ThreadUtil.cancelRunnableOnMain when recording stops. Deliberately
+  // elapsed-time only, no "/ max duration" -- the app's real cap is 1 hour,
+  // which isn't a meaningful limit to display against. No pulsing/blinking
+  // indicator either, matching the Light reference's own plain messaging UI.
+  private val recordingTimerTick = object : Runnable {
+    override fun run() {
+      val elapsedSeconds = (System.currentTimeMillis() - recordingStartTimeMs) / 1000L
+      binding.conversationLightActionBar.lightActionBarRecordingLabel.text = android.text.format.DateUtils.formatElapsedTime(elapsedSeconds)
+      ThreadUtil.runOnMainDelayed(this, 1000L)
+    }
+  }
+
+  /**
+   * LIGHT-STYLE PASS: starts a voice message from the attachment sheet's audio
+   * icon (a tap, not press-and-hold) -- reuses [InputPanel]'s existing
+   * recording state machine ([InputPanel.onRecordPressed]) which already
+   * drives [voiceMessageRecordingDelegate] end-to-end; only the visible
+   * trigger differs. The resting bar swaps to a recording indicator + stop
+   * button while [InputPanel] itself stays hidden (its own internal
+   * recording UI is designed for the press-and-hold gesture, not this tap flow).
+   */
+  private fun startAudioRecordingFromSheet() {
+    binding.conversationLightActionBar.lightActionBarRestingGroup.visible = false
+    binding.conversationLightActionBar.lightActionBarRecordingGroup.visible = true
+    binding.conversationLightActionBar.lightActionBarRecordingLabel.text = android.text.format.DateUtils.formatElapsedTime(0)
+    recordingStartTimeMs = System.currentTimeMillis()
+    ThreadUtil.runOnMainDelayed(recordingTimerTick, 1000L)
+    inputPanel.onRecordPressed()
+  }
+
+  private fun stopAudioRecordingFromSheet() {
+    inputPanel.onRecordReleased()
+  }
+
+  /** LIGHT-STYLE PASS: discards the in-progress recording instead of sending it, so a bad take can be redone. */
+  private fun cancelAudioRecordingFromSheet() {
+    inputPanel.onRecordCanceled(true)
+  }
+
+  /** Restores the resting call/attach/compose row once a sheet-triggered recording ends, however it ended. */
+  private fun resetAudioRecordingBar() {
+    ThreadUtil.cancelRunnableOnMain(recordingTimerTick)
+    binding.conversationLightActionBar.lightActionBarRecordingGroup.visible = false
+    binding.conversationLightActionBar.lightActionBarRestingGroup.visible = true
   }
 
   private object MediaKeyboardFragmentCreator : InputAwareConstraintLayout.FragmentCreator {

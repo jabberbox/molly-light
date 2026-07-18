@@ -44,7 +44,7 @@ fun PrepareDeviceScreen(
 ) {
   Scaffolds.Default(
     onNavigationClick = { emitter(PrepareDeviceScreenEvents.NavigateBack) },
-    navigationIconRes = CoreUiR.drawable.symbol_arrow_start_24
+    navigationIconRes = CoreUiR.drawable.light_ic_back
   ) { contentPadding ->
     Column(
       horizontalAlignment = Alignment.CenterHorizontally,

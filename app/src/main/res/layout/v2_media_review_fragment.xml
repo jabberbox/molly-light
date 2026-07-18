@@ -37,6 +37,28 @@
             android:background="@color/transparent"
             app:layout_constraintBottom_toBottomOf="@id/timeline_guideline" />
 
+        <!-- LIGHT-STYLE PASS: LP3 hardware has no system back button/gesture,
+             so this screen needs its own in-app way out, mirroring the close
+             button already added to the camera capture screen
+             (StandardCameraHud's CloseButton) for the same reason. Always
+             visible (not tied to the reveal animation the other controls
+             use) so there's never a dead-end state with no way to cancel. -->
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="15dp"
+            android:background="@drawable/media_gallery_button_background"
+            android:contentDescription="@string/MediaReviewFragment__close_accessibility_label"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Signal.Circle"
+            app:srcCompat="@drawable/symbol_x_24"
+            app:tint="?attr/colorOnSurface" />
+
         <org.thoughtcrime.securesms.components.emoji.SimpleEmojiTextView
             android:id="@+id/recipient"
             android:layout_width="wrap_content"

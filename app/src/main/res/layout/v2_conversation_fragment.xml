@@ -59,6 +59,26 @@
 
     </FrameLayout>
 
+    <!-- LIGHT-STYLE PASS: full-screen opaque scrim shown behind the compose
+         header/InputPanel while composing, fully covering (and, via
+         clickable/focusable, blocking touches/scroll to) the conversation
+         underneath. Plain match_parent + simple visibility toggle, mirroring
+         the already-working reactions_shade pattern below. A static 0dp
+         (match-constraint) height on conversation_input_panel's own <include>
+         combined with android:visibility="gone" caused ConstraintLayout to
+         render it at rest regardless of the GONE flag, and a runtime
+         ConstraintSet mutation to grow InputPanel instead didn't take visible
+         effect either, so covering the conversation is handled here instead,
+         leaving InputPanel at its normal compact size. -->
+    <View
+        android:id="@+id/conversation_compose_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?attr/signal_background_primary"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/scroll_date_header"
         style="@style/Signal.Text.BodySmall"
@@ -137,6 +157,28 @@
         </LinearLayout>
 
     </org.thoughtcrime.securesms.util.views.DarkOverflowToolbar>
+
+    <!-- LIGHT-STYLE PASS: Toolbar's built-in navigation icon rendering
+         scales/positions the drawable using its own internal logic, which
+         doesn't line up pixel-for-pixel with the compose header's back
+         button no matter what inset is applied to the icon drawable itself.
+         A real ImageButton built to the exact same spec (size, margin,
+         padding, scaleType) as conversation_compose_header's back button
+         sidesteps that entirely, see updateNavigationIconForNormal(). -->
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/toolbar_back_button"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="@id/parent_start_guideline"
+        app:layout_constraintTop_toTopOf="@id/toolbar"
+        app:srcCompat="@drawable/light_ic_back"
+        tools:visibility="visible" />
 
     <org.thoughtcrime.securesms.components.compose.ActionModeTopBarView
         android:id="@+id/action_mode_top_bar"
@@ -241,7 +283,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:barrierDirection="top"
-        app:constraint_referenced_ids="conversation_input_panel,attachment_editor_stub,conversation_disabled_input,scheduled_messages_stub,scheduled_messages,conversation_search_bottom_bar" />
+        app:constraint_referenced_ids="conversation_input_panel,conversation_light_action_bar,attachment_editor_stub,conversation_disabled_input,scheduled_messages_stub,scheduled_messages,conversation_search_bottom_bar" />
 
     <ViewStub
         android:id="@+id/attachment_editor_stub"
@@ -265,14 +307,43 @@
         app:layout_constraintStart_toStartOf="@id/parent_start_guideline"
         app:layout_goneMarginBottom="0dp" />
 
+    <!-- Compact compose row, shown at its normal wrap_content size during
+         compose mode; conversation_compose_scrim above covers the rest of
+         the screen behind it and the compose header. -->
     <include
         android:id="@+id/conversation_input_panel"
         layout="@layout/conversation_input_panel"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/conversation_input_space_left"
+        app:layout_constraintEnd_toEndOf="@id/parent_end_guideline"
+        app:layout_constraintStart_toStartOf="@id/parent_start_guideline"
+        tools:visibility="visible" />
+
+    <!-- LIGHT-STYLE PASS: resting-state bottom bar replacing the always-visible
+         text composer; see conversation_light_action_bar.xml. -->
+    <include
+        android:id="@+id/conversation_light_action_bar"
+        layout="@layout/conversation_light_action_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         app:layout_constraintBottom_toTopOf="@+id/conversation_input_space_left"
         app:layout_constraintEnd_toEndOf="@id/parent_end_guideline"
         app:layout_constraintStart_toStartOf="@id/parent_start_guideline" />
+
+    <!-- LIGHT-STYLE PASS: full-screen compose header (back/contact/send), shown
+         in place of the normal toolbar while composing; see
+         conversation_compose_header.xml. -->
+    <include
+        android:id="@+id/conversation_compose_header"
+        layout="@layout/conversation_compose_header"
+        android:layout_width="0dp"
+        android:layout_height="@dimen/signal_m3_toolbar_height"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="@id/parent_end_guideline"
+        app:layout_constraintStart_toStartOf="@id/parent_start_guideline"
+        app:layout_constraintTop_toTopOf="@id/status_bar_guideline" />
 
     <include
         android:id="@+id/conversation_search_bottom_bar"

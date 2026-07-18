@@ -6,6 +6,7 @@
 package org.thoughtcrime.securesms.conversation
 
 import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -26,6 +27,8 @@ import org.thoughtcrime.securesms.recipients.Recipient
 internal object ConversationOptionsMenu {
 
   private val TAG = Log.tag(ConversationOptionsMenu::class.java)
+
+  private const val MENU_ITEM_TITLE_COLOR = 0xFFE9E9E9.toInt()
 
   /**
    * MenuProvider implementation for the conversation options menu.
@@ -210,6 +213,15 @@ internal object ConversationOptionsMenu {
       val formatText = menu.findItem(R.id.menu_format_text_submenu)
       if (formatText != null) {
         formatText.isVisible = callback.isTextHighlighted()
+      }
+
+      // LIGHT-STYLE MONOCHROME PASS: the overflow popup's item text color could
+      // not be reached through any theme/style attr (actionOverflowMenuStyle,
+      // popupTheme, itemTextAppearance all traced dead ends -- the popup still
+      // rendered with a stock, unthemed dark tone), so it's set directly here,
+      // matching molly_on_surface_dark/light.
+      for (i in 0 until menu.size()) {
+        menu.getItem(i).applyTitleSpan(ForegroundColorSpan(MENU_ITEM_TITLE_COLOR))
       }
     }
 

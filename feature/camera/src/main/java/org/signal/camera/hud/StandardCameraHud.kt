@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,7 +71,8 @@ data class StringResources(
   @param:StringRes val flashOff: Int = 0,
   @param:StringRes val flashOn: Int = 0,
   @param:StringRes val flashAuto: Int = 0,
-  @param:StringRes val send: Int = 0
+  @param:StringRes val send: Int = 0,
+  @param:StringRes val close: Int = 0
 )
 
 /**
@@ -235,14 +237,29 @@ private fun BoxScope.StandardCameraHudContent(
 
   ShutterOverlay(state.showShutter)
 
-  FlashToggleButton(
-    flashMode = state.flashMode,
-    onToggle = { emitter(StandardCameraHudEvents.ToggleFlash) },
-    stringResources = stringResources,
+  // LIGHT-STYLE PASS: some devices (e.g. Light Phone) have no system back
+  // button/gesture, so this screen needs its own in-app way out rather than
+  // relying solely on the system back stack. Paired with the flash toggle in
+  // the same corner (rather than the opposite one) since that corner is
+  // already proven collision-free with CameraControls in every capture mode
+  // (portrait, landscape, and the narrower avatar/square-crop viewport).
+  Row(
     modifier = Modifier
       .align(if (isLandscape) Alignment.TopStart else Alignment.TopEnd)
-      .padding(16.dp)
-  )
+      .padding(16.dp),
+    horizontalArrangement = Arrangement.spacedBy(12.dp)
+  ) {
+    CloseButton(
+      onClick = { emitter(StandardCameraHudEvents.CloseClicked) },
+      stringResources = stringResources
+    )
+
+    FlashToggleButton(
+      flashMode = state.flashMode,
+      onToggle = { emitter(StandardCameraHudEvents.ToggleFlash) },
+      stringResources = stringResources
+    )
+  }
 
   if (state.isRecording) {
     RecordingDurationDisplay(
@@ -418,6 +435,33 @@ private fun CameraSwitchButton(
       contentDescription = contentDescription,
       tint = Color.White,
       modifier = Modifier.size(28.dp)
+    )
+  }
+}
+
+@Composable
+private fun CloseButton(
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  stringResources: StringResources = StringResources()
+) {
+  val contentDescription = if (stringResources.close != 0) {
+    stringResource(stringResources.close)
+  } else {
+    null
+  }
+
+  IconButton(
+    onClick = onClick,
+    modifier = modifier
+      .size(48.dp)
+      .background(Color.Black.copy(alpha = 0.5f), shape = CircleShape)
+  ) {
+    Icon(
+      painter = SignalIcons.X.painter,
+      contentDescription = contentDescription,
+      tint = Color.White,
+      modifier = Modifier.size(24.dp)
     )
   }
 }

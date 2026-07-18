@@ -45,7 +45,10 @@
     <color name="touch_highlight">#400099cc</color>
     <color name="touch_highlight_material3">#14E3E1E6</color>
 
-    <color name="ConversationListTabs__unread">#FFCE4A40</color>
+    <!-- LIGHT-STYLE MONOCHROME PASS: was a red/orange alert color, the last
+         saturated color left in the nav bar; matches molly_outline_dark so it
+         reads as a quiet indicator rather than an attention grab. -->
+    <color name="ConversationListTabs__unread">#FF5E5E5E</color>
 
     <color name="transparent">#00FFFFFF</color>
     <color name="transparent_black">#00000000</color>

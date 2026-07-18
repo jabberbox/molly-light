@@ -13,8 +13,10 @@
     <dimen name="min_custom_keyboard_top_margin_portrait">170dp</dimen>
     <dimen name="min_custom_keyboard_top_margin_landscape_bubble">56dp</dimen>
     <dimen name="emoji_drawer_item_width">46dp</dimen>
-    <dimen name="conversation_item_body_text_size">16sp</dimen>
-    <dimen name="conversation_item_date_text_size">12sp</dimen>
+    <!-- LIGHT-STYLE MINIMALISM PASS: bumped from 16sp/12sp for the larger,
+         more legible text Light's own UI favors over standard chat-app density. -->
+    <dimen name="conversation_item_body_text_size">19sp</dimen>
+    <dimen name="conversation_item_date_text_size">13sp</dimen>
     <dimen name="contact_photo_target_size">64dp</dimen>
     <dimen name="keyboard_toolbar_height">44dp</dimen>
 
@@ -30,12 +32,14 @@
     <dimen name="album_5_cell_size_big">104dp</dimen>
     <dimen name="album_5_cell_size_small">69dp</dimen>
 
-    <dimen name="message_corner_radius">18dp</dimen>
-    <dimen name="message_corner_collapse_radius">4dp</dimen>
+    <!-- LIGHT-STYLE MINIMALISM PASS: flattened from 18dp/4dp, less "bubbly"
+         and more like plain rectangular text blocks. -->
+    <dimen name="message_corner_radius">6dp</dimen>
+    <dimen name="message_corner_collapse_radius">2dp</dimen>
     <dimen name="message_bubble_corner_radius">2dp</dimen>
     <dimen name="message_bubble_shadow_distance">1.5dp</dimen>
-    <dimen name="message_bubble_horizontal_padding">12dp</dimen>
-    <dimen name="message_bubble_top_padding">7dp</dimen>
+    <dimen name="message_bubble_horizontal_padding">16dp</dimen>
+    <dimen name="message_bubble_top_padding">2dp</dimen>
     <dimen name="message_bubble_top_image_margin">4dp</dimen>
     <dimen name="message_bubble_text_only_top_margin">4dp</dimen>
     <dimen name="message_bubble_top_padding_audio">12dp</dimen>

@@ -188,12 +188,24 @@
         <item name="cornerRadius">28dp</item>
     </style>
 
+    <!-- LIGHT-STYLE MONOCHROME PASS: this is the style actually applied via
+         actionOverflowMenuStyle for the toolbar's own 3-dot overflow popup
+         (Signal.DayNight.Popup is used elsewhere), and its stock
+         ThemeOverlay.Material3 parent supplies its own dim default text
+         color independent of colorOnSurface, so it needed the same explicit
+         override. -->
     <style name="Signal.DayNight.Popup.OverflowMenu" parent="ThemeOverlay.Material3">
         <item name="overlapAnchor">false</item>
         <item name="android:popupElevation" tools:ignore="NewApi">4dp</item>
         <item name="android:dropDownHorizontalOffset">-14dp</item>
         <item name="android:dropDownVerticalOffset">1px</item>
         <item name="android:popupBackground">@drawable/rounded_rectangle_surface_2_18</item>
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textAppearanceLargePopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="textAppearanceLargePopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="textAppearanceSmallPopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
     </style>
 
     <style name="Signal.MaterialAlertDialog" parent="MaterialAlertDialog.Material3">
@@ -205,18 +217,42 @@
         <item name="backgroundInsetEnd">0dp</item>
     </style>
 
-    <style name="Signal.DayNight.Popup" parent="@style/ThemeOverlay.Material3.Light" />
+    <!-- LIGHT-STYLE MONOCHROME PASS: the toolbar overflow popup (ListPopupWindow)
+         reads its item text color from textAppearanceLargePopupMenu/Small, not
+         from textColorPrimary directly, so those needed an explicit override
+         too or items stayed at AppCompat's dimmed default gray. -->
+    <style name="Signal.PopupMenu.TextAppearance" parent="TextAppearance.AppCompat.Widget.PopupMenu.Large">
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="Signal.DayNight.Popup" parent="@style/Theme.Molly.Material3.Light">
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textAppearanceLargePopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="textAppearanceLargePopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="textAppearanceSmallPopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+    </style>
 
     <style name="Signal.DayNight.Toolbar.Overflow" parent="@style/Signal.Toolbar.Overflow.Light" />
 
     <style name="Signal.DayNight.TitleTextStyle" parent="@style/TextSecure.TitleTextStyle" />
 
+    <!-- LIGHT-STYLE MONOCHROME PASS: stock ThemeOverlay.Material3 parent
+         supplies its own dim/unthemed colorOnSurface for the toolbar title
+         (e.g. Message details), same fix pattern as ThemeOverlay.Signal.EditProfileInput. -->
     <style name="Signal.DayNight.Dialog.FullScreen" parent="@style/ThemeOverlay.Material3">
         <item name="android:windowAnimationStyle">@style/TextSecure.Animation.FullScreenDialog</item>
+        <item name="colorSurface">@color/molly_surface_dark</item>
+        <item name="colorOnSurface">@color/molly_on_surface_dark</item>
+        <item name="android:textColorPrimary">@color/molly_on_surface_dark</item>
     </style>
 
     <style name="Signal.DayNight.Dialog.FullScreen.Poll" parent="@style/ThemeOverlay.Material3">
         <item name="android:windowAnimationStyle">@style/TextSecure.Animation.FullScreenDialogPoll</item>
+        <item name="colorSurface">@color/molly_surface_dark</item>
+        <item name="colorOnSurface">@color/molly_on_surface_dark</item>
+        <item name="android:textColorPrimary">@color/molly_on_surface_dark</item>
     </style>
 
     <style name="Signal.DayNight.Dialog.Animated.Bottom" parent="@style/ThemeOverlay.Material3">
@@ -341,7 +377,18 @@
         <item name="materialThemeOverlay">?attr/switchThemeOverlay</item>
     </style>
 
+    <!-- LIGHT-STYLE MONOCHROME PASS: this empty overlay's stock ThemeOverlay.Material3
+         parent supplies its own dim/unthemed colorOnSurface, shadowing ours for any
+         EditText it wraps (android:theme= on TextInputLayout, e.g. the profile name
+         fields, phone number entry, verification code, PIN entry), so typed text was
+         rendering in Google's baseline color instead of our white on black, making it
+         effectively invisible. Same fix pattern as the toolbar's actionBarStyle bug. -->
     <style name="Signal.ThemeOverlay.TextInputLayout" parent="ThemeOverlay.Material3">
+        <item name="colorSurface">@color/molly_surface_dark</item>
+        <item name="colorOnSurface">@color/molly_on_surface_dark</item>
+        <item name="colorOnSurfaceVariant">@color/molly_on_surface_variant_dark</item>
+        <item name="android:textColorPrimary">@color/molly_on_surface_dark</item>
+        <item name="android:textColorSecondary">@color/molly_on_surface_variant_dark</item>
     </style>
 
     <style name="ThemeOverlay.MaterialSwitch.DayNight" parent="ThemeOverlay.Material3">

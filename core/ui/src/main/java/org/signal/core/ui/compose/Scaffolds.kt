@@ -164,8 +164,14 @@ object Scaffolds {
       title = { titleContent(scrollBehavior.state.contentOffset, title) },
       navigationIcon = navigationIconContent,
       scrollBehavior = scrollBehavior,
+      // LIGHT-STYLE PASS: scrolledContainerColor used to be a visibly
+      // lighter Material3 surface tone, making every settings-style screen's
+      // header turn gray once its content scrolled. Matching it to the
+      // resting containerColor keeps the header flat black at any scroll
+      // position, mirroring the same fix applied to Material3OnScrollHelper
+      // for the View-based screens.
       colors = TopAppBarDefaults.topAppBarColors(
-        scrolledContainerColor = SignalTheme.colors.colorSurface2
+        scrolledContainerColor = MaterialTheme.colorScheme.surface
       ),
       actions = actions
     )

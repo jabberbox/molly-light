@@ -126,6 +126,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
   private DeliveryStatusView  deliveryStatusIndicator;
   private AlertView           alertView;
   private TextView            unreadIndicator;
+  private View                unreadDot;
   private long                lastSeen;
   private ThreadWithRecipient thread;
   private boolean             batchMode;
@@ -168,6 +169,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     this.contactPhotoImage       = findViewById(R.id.conversation_list_item_avatar);
     this.archivedView            = findViewById(R.id.conversation_list_item_archived);
     this.unreadIndicator         = findViewById(R.id.conversation_list_item_unread_indicator);
+    this.unreadDot               = findViewById(R.id.conversation_list_item_unread_dot);
     this.badge                   = findViewById(R.id.conversation_list_item_badge);
     this.checkContainer          = findViewById(R.id.conversation_list_item_check_container);
     this.uncheckedView           = findViewById(R.id.conversation_list_item_unchecked);
@@ -291,16 +293,43 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     setSelectedConversations(selectedConversations);
     setBadgeFromRecipient(recipient.get());
     setUnreadIndicator(thread);
-    this.contactPhotoImage.setAvatar(requestManager, recipient.get(), !batchMode);
+    updateContactPhoto(recipient.get(), !batchMode);
   }
 
   private void setBadgeFromRecipient(Recipient recipient) {
+    // LIGHT-STYLE PASS: badge is permanently GONE in this reskin (no
+    // per-row status icons in the Light reference). Populating it anyway on
+    // every bind does real work (recipient lookup, drawable diffing) for a
+    // view that's never drawn -- skip it entirely.
+    if (badge.getVisibility() == View.GONE) {
+      return;
+    }
+
     if (!recipient.isSelf()) {
       badge.setBadgeFromRecipient(recipient);
       badge.setClickable(false);
     } else {
       badge.setBadge(null);
     }
+  }
+
+  // LIGHT-STYLE PASS: contactPhotoImage is permanently GONE in this reskin
+  // (no avatars in the Light stock texting reference). AvatarImageView.setAvatar()
+  // does real main-thread work every call (Glide request/clear, initials,
+  // chat color diffing) even when nothing will be drawn -- skip it entirely
+  // rather than paying that cost on every row bind and conversation open.
+  private void updateContactPhoto(@Nullable Recipient recipient, boolean quickContactEnabled) {
+    if (contactPhotoImage.getVisibility() == View.GONE) {
+      return;
+    }
+    contactPhotoImage.setAvatar(requestManager, recipient, quickContactEnabled);
+  }
+
+  private void updateContactPhoto(@Nullable Recipient recipient, boolean quickContactEnabled, boolean useSelfProfileAvatar) {
+    if (contactPhotoImage.getVisibility() == View.GONE) {
+      return;
+    }
+    contactPhotoImage.setAvatar(requestManager, recipient, quickContactEnabled, useSelfProfileAvatar);
   }
 
   public void bindMessage(@NonNull LifecycleOwner lifecycleOwner,
@@ -332,6 +361,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     updateDateView.run();
     archivedView.setVisibility(GONE);
     unreadIndicator.setVisibility(GONE);
+    unreadDot.setVisibility(INVISIBLE);
     unreadMentions.setVisibility(GONE);
     deliveryStatusIndicator.setNone();
     alertView.setNone();
@@ -339,7 +369,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     setSelectedConversations(new ConversationSet());
     setActiveRecipientId(null);
     setBadgeFromRecipient(recipient.get());
-    contactPhotoImage.setAvatar(requestManager, recipient.get(), !batchMode, false);
+    updateContactPhoto(recipient.get(), !batchMode, false);
   }
 
   public void bindGroupWithMembers(@NonNull LifecycleOwner lifecycleOwner,
@@ -372,6 +402,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     updateDateView.run();
     archivedView.setVisibility(GONE);
     unreadIndicator.setVisibility(GONE);
+    unreadDot.setVisibility(INVISIBLE);
     unreadMentions.setVisibility(GONE);
     deliveryStatusIndicator.setNone();
     alertView.setNone();
@@ -379,7 +410,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     setSelectedConversations(new ConversationSet());
     setActiveRecipientId(null);
     setBadgeFromRecipient(recipient.get());
-    contactPhotoImage.setAvatar(requestManager, recipient.get(), !batchMode);
+    updateContactPhoto(recipient.get(), !batchMode);
   }
 
   private @NonNull Single<String> joinMembersToDisplayBody(@NonNull List<RecipientId> members, @NonNull String highlightSubstring) {
@@ -399,7 +430,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
       observeRecipient(null, null);
       setSelectedConversations(new ConversationSet());
       setActiveRecipientId(null);
-      contactPhotoImage.setAvatar(requestManager, null, !batchMode);
+      updateContactPhoto(null, !batchMode);
     }
 
     observeDisplayBody(null, null);
@@ -420,7 +451,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     setSelected(selected);
 
     if (recipient != null) {
-      contactPhotoImage.setAvatar(requestManager, recipient.get(), !batchMode);
+      updateContactPhoto(recipient.get(), !batchMode);
     }
 
     if (batchMode && selected) {
@@ -449,7 +480,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
       this.typingView.setVisibility(GONE);
       this.typingView.stopAnimation();
 
-      this.subjectView.setVisibility(VISIBLE);
+      this.subjectView.setVisibility(GONE);
     }
   }
 
@@ -509,11 +540,15 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
   }
 
   private void setSubjectViewText(@Nullable CharSequence text) {
+    // LIGHT-STYLE PASS: subjectView (the message preview) stays hidden even
+    // when there's text to show, matching the Light reference's name-only
+    // chat list. The XML default of gone wasn't enough since this setter
+    // used to force it visible whenever a preview was available.
     if (text == null) {
       subjectView.setText(null);
     } else {
       subjectView.setText(text);
-      subjectView.setVisibility(VISIBLE);
+      subjectView.setVisibility(GONE);
     }
   }
 
@@ -558,6 +593,12 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
   }
 
   private void setUnreadIndicator(ThreadWithRecipient thread) {
+    // LIGHT-STYLE PASS: the count badge/mentions indicator below stay
+    // hidden (no per-row status icons in the Light reference), but this
+    // plain dot is the only remaining way to tell which rows are unread
+    // now that names are no longer bolded for that purpose either.
+    unreadDot.setVisibility(thread.isRead() ? View.INVISIBLE : View.VISIBLE);
+
     if (thread.isRead()) {
       unreadIndicator.setVisibility(View.GONE);
       unreadMentions.setVisibility(View.GONE);
@@ -592,7 +633,7 @@ public final class ConversationListItem extends ConstraintLayout implements Bind
     } else {
       fromView.setText(recipient, recipient.getDisplayName(getContext()), null, true, false, thread != null && thread.isPinned());
     }
-    contactPhotoImage.setAvatar(requestManager, recipient, !batchMode, false);
+    updateContactPhoto(recipient, !batchMode, false);
     setBadgeFromRecipient(recipient);
   }
 

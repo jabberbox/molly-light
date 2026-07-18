@@ -14,4 +14,5 @@ sealed interface CameraXScreenEvent {
   data object VideoCaptureError : CameraXScreenEvent
   data object GalleryClicked : CameraXScreenEvent
   data object CameraCountButtonClicked : CameraXScreenEvent
+  data object CloseClicked : CameraXScreenEvent
 }

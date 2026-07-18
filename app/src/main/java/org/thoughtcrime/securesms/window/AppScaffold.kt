@@ -448,6 +448,7 @@ private fun AppScaffoldPreview() {
       bottomNavContent = {
         MainNavigationBar(
           state = MainNavigationState(),
+          mainFloatingActionButtonsCallback = MainFloatingActionButtonsCallback.Empty,
           onDestinationSelected = {}
         )
       },

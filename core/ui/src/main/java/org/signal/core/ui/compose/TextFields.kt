@@ -84,9 +84,11 @@ object TextFields {
         TextFieldDefaults.contentPaddingWithLabel()
       }
   ) {
-    // If color is not provided via the text style, use content color as a default
+    // If color is not provided via the text style, fall back to the colors param
+    // (matching what's passed to the decoration box) rather than LocalContentColor,
+    // which is only reliably themed when a Surface sits directly above this call site.
     val textColor = textStyle.color.takeOrElse {
-      LocalContentColor.current
+      if (enabled) colors.focusedTextColor.takeOrElse { LocalContentColor.current } else colors.disabledTextColor.takeOrElse { LocalContentColor.current }
     }
     val mergedTextStyle = textStyle.merge(TextStyle(color = textColor))
     val cursorColor = rememberUpdatedState(newValue = if (isError) MaterialTheme.colorScheme.error else textColor)

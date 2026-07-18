@@ -15,7 +15,7 @@
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
-      app:navigationIcon="@drawable/symbol_arrow_start_24"
+      app:navigationIcon="@drawable/light_ic_back"
       app:title="@string/EditAboutFragment_about" />
 
   <androidx.appcompat.widget.AppCompatImageView
@@ -43,6 +43,7 @@
       android:hint="@string/EditAboutFragment_write_a_few_words_about_yourself"
       android:inputType="textCapSentences"
       android:maxLines="1"
+      android:textColor="?attr/colorOnSurface"
       app:layout_constraintTop_toBottomOf="@id/toolbar"
       app:layout_constraintStart_toEndOf="@id/edit_about_emoji"
       app:layout_constraintEnd_toStartOf="@id/edit_about_clear"/>

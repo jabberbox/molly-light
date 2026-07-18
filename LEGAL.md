@@ -39,10 +39,14 @@ apply in your jurisdiction.
 Molly is an independent project and is not affiliated with, endorsed by, or
 sponsored by Signal Messenger, LLC or the Signal Foundation.
 
+Molly Light is an independent, unofficial personal fork of Molly and is not
+affiliated with, endorsed by, or sponsored by the Molly project, Signal
+Messenger, LLC, or the Signal Foundation.
+
 ## Trademarks
 
-"Signal" and associated names, marks, and logos are the property of their
-respective owners, including Signal Messenger, LLC where applicable.
+"Signal" and "Molly" and associated names, marks, and logos are the property
+of their respective owners, including Signal Messenger, LLC where applicable.
 
 Use of third-party names, marks, or logos in this repository is for
 identification, compatibility, or attribution purposes only and does not imply

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+LIGHT-STYLE PASS: header shown while composing a message full-screen (pencil
+icon tapped), matching the Light reference's back / contact name / send
+layout. Sits in place of the normal toolbar for the duration of compose mode.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/compose_header"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/signal_m3_toolbar_height"
+    android:background="@color/transparent">
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/compose_header_back"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/ConversationFragment__content_description_back_button"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/light_ic_back"
+        app:tint="?attr/colorOnSurface" />
+
+    <org.thoughtcrime.securesms.components.emoji.SimpleEmojiTextView
+        android:id="@+id/compose_header_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:maxLines="1"
+        android:textAppearance="@style/Signal.Text.TitleMedium"
+        android:textColor="?attr/colorOnSurface"
+        app:layout_constrainedWidth="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/compose_header_send"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@id/compose_header_back"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="+1 661-326-8536" />
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/compose_header_send"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginEnd="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/conversation_activity__send"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/light_ic_send"
+        app:tint="?attr/colorOnSurface" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

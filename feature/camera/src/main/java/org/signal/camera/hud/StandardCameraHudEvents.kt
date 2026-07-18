@@ -34,6 +34,12 @@ sealed interface StandardCameraHudEvents {
   data object ToggleFlash : StandardCameraHudEvents
 
   /**
+   * Emitted when the close button is clicked, requesting the camera screen be dismissed. Needed
+   * since some devices (e.g. Light Phone) have no system back button/gesture to fall back on.
+   */
+  data object CloseClicked : StandardCameraHudEvents
+
+  /**
    * Emitted when a capture error should be cleared (after displaying to user).
    */
   data object ClearCaptureError : StandardCameraHudEvents

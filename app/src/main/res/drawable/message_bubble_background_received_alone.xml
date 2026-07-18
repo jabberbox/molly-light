@@ -5,7 +5,8 @@
         android:top="2px">
         <shape android:shape="rectangle">
             <corners android:radius="@dimen/message_corner_radius" />
-            <solid android:color="@color/white" />
+            <!-- LIGHT-STYLE PASS: transparent, no bubble, plain text only -->
+            <solid android:color="@android:color/transparent" />
         </shape>
     </item>
 </layer-list>

@@ -2,6 +2,13 @@ package org.thoughtcrime.securesms.conversation.colors
 
 /**
  * Namespaced collection of supported bubble colors and name colors.
+ *
+ * LIGHT-STYLE MONOCHROME PASS: every solid/gradient here is now a neutral
+ * gray so the message bubbles read as monochrome by default. Values stay
+ * within the same dark/medium luminance range as the original palette
+ * since bubble text is always fixed white (conversation_item_sent_text_primary_color)
+ * and never recomputed per bubble color -- going lighter than this would
+ * make text unreadable.
  */
 object ChatColorsPalette {
   object Bubbles {
@@ -11,7 +18,7 @@ object ChatColorsPalette {
     @JvmField
     val INDIGO = ChatColors.forColor(
       ChatColors.Id.BuiltIn,
-      0xFF315FF4.toInt()
+      0xFF5D5D5D.toInt()
     )
 
     // endregion
@@ -19,45 +26,45 @@ object ChatColorsPalette {
     // region Solids
 
     @JvmField
-    val CRIMSON = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFFCF163E.toInt())
+    val CRIMSON = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF383838.toInt())
 
     @JvmField
-    val VERMILION = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFFC73F0A.toInt())
+    val VERMILION = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF3D3D3D.toInt())
 
     @JvmField
-    val BURLAP = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF6F6A58.toInt())
+    val BURLAP = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF424242.toInt())
 
     @JvmField
-    val FOREST = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF3B7845.toInt())
+    val FOREST = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF484848.toInt())
 
     @JvmField
-    val WINTERGREEN = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF1D8663.toInt())
+    val WINTERGREEN = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF4D4D4D.toInt())
 
     @JvmField
-    val TEAL = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF077D92.toInt())
+    val TEAL = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF525252.toInt())
 
     @JvmField
-    val BLUE = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF336BA3.toInt())
+    val BLUE = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF585858.toInt())
 
     @JvmField
-    val ULTRAMARINE = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF6448E5.toInt())
+    val ULTRAMARINE = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF4B4B4B.toInt())
 
     @JvmField
-    val VIOLET = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF9932CB.toInt())
+    val VIOLET = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF626262.toInt())
 
     @JvmField
-    val PLUM = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFFAA377A.toInt())
+    val PLUM = ChatColors.forColor(ChatColors.Id.BuiltIn, 0xFF686868.toInt())
 
     @JvmField
     val TAUPE = ChatColors.forColor(
       ChatColors.Id.BuiltIn,
-      0xFF8F616A.toInt()
+      0xFF6D6D6D.toInt()
     )
 
     @JvmField
     val STEEL = ChatColors.forColor(
       ChatColors.Id.BuiltIn,
-      0xFF71717F.toInt()
+      0xFF707070.toInt()
     )
 
     // endregion
@@ -72,7 +79,7 @@ object ChatColorsPalette {
       ChatColors.Id.BuiltIn,
       ChatColors.LinearGradient(
         180f,
-        intArrayOf(0xFF2C2C3A.toInt(), 0xFF787891.toInt()),
+        intArrayOf(0xFF2C2C2C.toInt(), 0xFF787878.toInt()),
         floatArrayOf(0f, 1f)
       )
     )
@@ -82,7 +89,7 @@ object ChatColorsPalette {
       ChatColors.Id.BuiltIn,
       ChatColors.LinearGradient(
         192f,
-        intArrayOf(0xFFF65560.toInt(), 0xFF442CED.toInt()),
+        intArrayOf(0xFF202020.toInt(), 0xFF909090.toInt()),
         floatArrayOf(0f, 1f)
       )
     )
@@ -92,7 +99,7 @@ object ChatColorsPalette {
       ChatColors.Id.BuiltIn,
       ChatColors.LinearGradient(
         180f,
-        intArrayOf(0xFF004066.toInt(), 0xFF32867D.toInt()),
+        intArrayOf(0xFF252525.toInt(), 0xFF6E6E6E.toInt()),
         floatArrayOf(0f, 1f)
       )
     )
@@ -102,7 +109,7 @@ object ChatColorsPalette {
       ChatColors.Id.BuiltIn,
       ChatColors.LinearGradient(
         192f,
-        intArrayOf(0xFFEC13DD.toInt(), 0xFF1B36C6.toInt()),
+        intArrayOf(0xFF1A1A1A.toInt(), 0xFF858585.toInt()),
         floatArrayOf(0f, 1f)
       )
     )
@@ -112,7 +119,7 @@ object ChatColorsPalette {
       ChatColors.Id.BuiltIn,
       ChatColors.LinearGradient(
         180f,
-        intArrayOf(0xFF2F9373.toInt(), 0xFF077343.toInt()),
+        intArrayOf(0xFF3A3A3A.toInt(), 0xFF606060.toInt()),
         floatArrayOf(0f, 1f)
       )
     )
@@ -123,8 +130,8 @@ object ChatColorsPalette {
       ChatColors.LinearGradient(
         180f,
         intArrayOf(
-          0xFF6281D5.toInt(),
-          0xFF974460.toInt()
+          0xFF454545.toInt(),
+          0xFF6B6B6B.toInt()
         ),
         floatArrayOf(0f, 1f)
       )
@@ -135,7 +142,7 @@ object ChatColorsPalette {
       ChatColors.Id.BuiltIn,
       ChatColors.LinearGradient(
         180f,
-        intArrayOf(0xFF498FD4.toInt(), 0xFF2C66A0.toInt()),
+        intArrayOf(0xFF404040.toInt(), 0xFF585858.toInt()),
         floatArrayOf(0f, 1f)
       )
     )
@@ -145,7 +152,7 @@ object ChatColorsPalette {
       ChatColors.Id.BuiltIn,
       ChatColors.LinearGradient(
         192f,
-        intArrayOf(0xFFDB7133.toInt(), 0xFF911231.toInt()),
+        intArrayOf(0xFF505050.toInt(), 0xFF303030.toInt()),
         floatArrayOf(0f, 1f)
       )
     )

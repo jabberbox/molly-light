@@ -8,7 +8,7 @@
     android:animateLayoutChanges="true"
     android:background="@drawable/conversation_list_item_background"
     android:focusable="true"
-    android:minHeight="84dp"
+    android:minHeight="48dp"
     android:nextFocusLeft="@+id/container"
     android:paddingStart="@dimen/dsl_settings_gutter"
     android:paddingTop="10dp"
@@ -45,12 +45,16 @@
 
     </FrameLayout>
 
+    <!-- LIGHT-STYLE PASS: no avatars in the Light stock texting reference,
+         kept in the layout (gone, not removed) so ConversationListItem.java's
+         existing avatar-population code has nothing to null-check around. -->
     <org.thoughtcrime.securesms.components.AvatarImageView
         android:id="@+id/conversation_list_item_avatar"
         android:layout_width="@dimen/conversation_list_avatar_size"
         android:layout_height="@dimen/conversation_list_avatar_size"
         android:layout_marginStart="24dp"
         android:layout_marginTop="4dp"
+        android:visibility="gone"
         android:contentDescription="@string/conversation_list_item_view__contact_photo_image"
         android:foreground="@drawable/contact_photo_background"
         app:layout_constraintStart_toEndOf="@id/conversation_list_item_check_container"
@@ -58,21 +62,44 @@
         app:layout_goneMarginStart="0dp"
         tools:src="@tools:sample/avatars" />
 
+    <!-- LIGHT-STYLE PASS: the only per-row unread signal left after removing
+         the stock count badge/bold-name treatment. Kept as a plain dot
+         (not a count) to stay in keeping with the Light reference's minimal
+         style. Always present in the layout (INVISIBLE, not GONE) so the
+         name's position never shifts when a conversation's read state
+         changes; toggled in ConversationListItem.java's
+         setUnreadIndicator(). -->
+    <View
+        android:id="@+id/conversation_list_item_unread_dot"
+        android:layout_width="10dp"
+        android:layout_height="10dp"
+        android:background="@drawable/circle_tintable"
+        android:backgroundTint="@color/ConversationListTabs__unread"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="@id/conversation_list_item_name"
+        app:layout_constraintStart_toEndOf="@id/conversation_list_item_avatar"
+        app:layout_constraintTop_toTopOf="@id/conversation_list_item_name"
+        tools:visibility="visible" />
+
+    <!-- LIGHT-STYLE PASS: now the only visible element in the row, sized up
+         to match the Light stock texting reference (regular weight, not bold). -->
     <org.thoughtcrime.securesms.components.FromTextView
         android:id="@+id/conversation_list_item_name"
         style="@style/Signal.Text.BodyLarge"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="20dp"
+        android:layout_marginStart="14dp"
         android:layout_marginEnd="12dp"
         android:drawablePadding="5dp"
         android:ellipsize="end"
         android:maxLines="1"
+        android:textSize="32sp"
+        android:textStyle="normal"
         android:textAlignment="viewStart"
         android:textColor="?attr/colorOnSurface"
         app:layout_constraintBottom_toTopOf="@id/conversation_list_item_summary"
         app:layout_constraintEnd_toStartOf="@id/conversation_list_item_date"
-        app:layout_constraintStart_toEndOf="@id/conversation_list_item_avatar"
+        app:layout_constraintStart_toEndOf="@id/conversation_list_item_unread_dot"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="packed"
         tools:text="Long Chat name for testing purposes" />
@@ -88,12 +115,15 @@
         app:layout_constraintTop_toBottomOf="@id/conversation_list_item_name"
         tools:visibility="visible" />
 
+    <!-- LIGHT-STYLE PASS: no message preview in the Light reference, gone
+         not removed so ConversationListItem.java's setter code stays intact. -->
     <org.thoughtcrime.securesms.components.emoji.EmojiTextView
         android:id="@+id/conversation_list_item_summary"
         style="@style/Signal.Text.BodyMedium"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginEnd="12dp"
+        android:visibility="gone"
         android:ellipsize="end"
         android:lines="2"
         android:maxLines="2"
@@ -116,12 +146,15 @@
         app:typingIndicator_tint="?attr/signal_icon_tint_secondary"
         tools:visibility="visible" />
 
+    <!-- LIGHT-STYLE PASS: no per-row timestamp in the Light reference, gone
+         not removed so ConversationListItem.java's setter code stays intact. -->
     <TextView
         android:id="@+id/conversation_list_item_date"
         style="@style/Signal.Text.BodyMedium"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
+        android:visibility="gone"
         android:singleLine="true"
         android:textColor="?attr/signal_icon_tint_secondary"
         app:layout_constraintBottom_toBottomOf="@id/conversation_list_item_name"
@@ -129,12 +162,16 @@
         app:layout_constraintTop_toTopOf="@id/conversation_list_item_name"
         tools:text="10:00 am" />
 
+    <!-- LIGHT-STYLE PASS: no per-row status icons (delivery/unread/archived)
+         in the Light reference. Not directly touched by Java (only its
+         children are), so hiding the container here is safe. -->
     <LinearLayout
         android:id="@+id/conversation_list_item_status_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:layout_marginTop="6dp"
+        android:visibility="gone"
         android:gravity="center"
         android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
@@ -195,12 +232,17 @@
 
     </LinearLayout>
 
+    <!-- LIGHT-STYLE PASS: fixed-size (24dp + 30dp top margin) with no XML
+         default visibility. Java only ever clears the badge drawable, never
+         hides the view itself, so this was silently reserving space below the
+         name on every row and was the main cause of the oversized row. -->
     <org.thoughtcrime.securesms.badges.BadgeImageView
         android:id="@+id/conversation_list_item_badge"
         android:layout_width="24dp"
         android:layout_height="24dp"
         android:layout_marginStart="28dp"
         android:layout_marginTop="30dp"
+        android:visibility="gone"
         android:contentDescription="@string/ImageView__badge"
         app:badge_size="medium"
         app:layout_constraintStart_toStartOf="@id/conversation_list_item_avatar"

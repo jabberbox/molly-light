@@ -38,7 +38,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/ContactNameEditActivity_prefix"
-                    android:textAppearance="@style/Signal.Text.BodyLarge" />
+                    android:textAppearance="@style/Signal.Text.BodyLarge"
+                    android:textColor="?attr/colorOnSurface" />
 
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -55,7 +56,8 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/ContactNameEditActivity_given_name"
                     tools:text="@tools:sample/first_names"
-                    android:textAppearance="@style/Signal.Text.BodyLarge" />
+                    android:textAppearance="@style/Signal.Text.BodyLarge"
+                    android:textColor="?attr/colorOnSurface" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -70,7 +72,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/ContactNameEditActivity_middle_name"
-                    android:textAppearance="@style/Signal.Text.BodyLarge" />
+                    android:textAppearance="@style/Signal.Text.BodyLarge"
+                    android:textColor="?attr/colorOnSurface" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -85,7 +88,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/ContactNameEditActivity_family_name"
-                    android:textAppearance="@style/Signal.Text.BodyLarge" />
+                    android:textAppearance="@style/Signal.Text.BodyLarge"
+                    android:textColor="?attr/colorOnSurface" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -98,7 +102,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/ContactNameEditActivity_suffix"
-                    android:textAppearance="@style/Signal.Text.BodyLarge" />
+                    android:textAppearance="@style/Signal.Text.BodyLarge"
+                    android:textColor="?attr/colorOnSurface" />
             </com.google.android.material.textfield.TextInputLayout>
 
 

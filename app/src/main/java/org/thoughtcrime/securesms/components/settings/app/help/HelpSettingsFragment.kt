@@ -77,14 +77,11 @@ class HelpSettingsFragment : ComposeFragment() {
           )
         }
 
-        item {
-          Rows.TextRow(
-            text = stringResource(id = R.string.HelpSettingsFragment__contact_us),
-            onClick = {
-              navController.safeNavigate(R.id.action_helpSettingsFragment_to_helpFragment)
-            }
-          )
-        }
+        // LIGHT-STYLE PASS: removed the "Contact Us" row -- it drafted an email straight to
+        // Molly's real support inbox (support@molly.im) with device debug info attached.
+        // Molly Light has a different package ID/signing key and Molly's maintainers didn't
+        // build this fork, so routing bug reports there just creates confusion and noise for
+        // them with no way for them to actually help.
 
         item {
           Dividers.Default()
@@ -163,6 +160,12 @@ class HelpSettingsFragment : ComposeFragment() {
           ) {
             TextAndLabel(
               label = StringBuilder().apply {
+                // LIGHT-STYLE PASS: added this line so the footer doesn't read as
+                // unqualified Molly/Signal attribution -- the rest of this text is
+                // required copyright/license notice we can't strip under AGPL, but
+                // nothing here previously said this build is Molly Light specifically.
+                append(getString(R.string.HelpSettingsFragment__molly_light_unofficial_fork))
+                append("\n")
                 append(getString(R.string.HelpFragment__copyright_signal_messenger))
                 append("\n")
                 append(getString(R.string.HelpFragment__licenced_under_the_agplv3))

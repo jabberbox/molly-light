@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Signal.DayNight.Popup" parent="@style/ThemeOverlay.Material3.Dark" />
+    <!-- LIGHT-STYLE MONOCHROME PASS: was ThemeOverlay.Material3.Dark, Google's
+         stock unwired overlay, so popups using it ignored our whole reskin.
+         textColorPrimary/Secondary/textAppearanceLargePopupMenu set explicitly,
+         see values/signal_styles.xml. -->
+    <style name="Signal.DayNight.Popup" parent="@style/Theme.Molly.Material3.Dark">
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textAppearanceLargePopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="textAppearanceLargePopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+        <item name="textAppearanceSmallPopupMenu">@style/Signal.PopupMenu.TextAppearance</item>
+    </style>
 
     <style name="Signal.DayNight.Toolbar.Overflow" parent="@style/Signal.Toolbar.Overflow" />
 </resources>

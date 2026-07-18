@@ -1,12 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- LIGHT-STYLE PASS: this -v31 file overrides the base themes.xml on API 31+,
+         which is why it needs its own fix, separate from the base theme. This used
+         to point at ic_splash_animated(_dark).xml, Molly's original bubble+dots
+         splash animation, with that artwork's 9 individually-animated dot elements
+         baked directly into the AnimatedVectorDrawable itself (not referencing
+         ic_launcher_foreground at all, which is why replacing the launcher icon
+         didn't touch this). The new "ML" wordmark doesn't have matching sub-parts
+         to re-choreograph that staggered entrance around, so this now points at the
+         same static asset the base (pre-API-31) theme already correctly uses. -->
+    <!-- android:windowBackground added here too, matching the base themes.xml fix:
+         this theme stays live beyond the splash phase (no postSplashScreenTheme),
+         so it's also what briefly shows before Compose's first frame draws on a
+         warm resume from Recents, not just on cold start. -->
     <style name="Theme.Molly.Starting.Light" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/core_ultramarine_icon</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_animated</item>
+        <item name="windowSplashScreenBackground">@color/molly_background_light</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="android:windowBackground">@color/molly_background_light</item>
     </style>
 
     <style name="Theme.Molly.Starting.Dark" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/core_ultramarine_icon_dark</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_animated_dark</item>
+        <item name="windowSplashScreenBackground">@color/molly_background_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="android:windowBackground">@color/molly_background_dark</item>
     </style>
 </resources>

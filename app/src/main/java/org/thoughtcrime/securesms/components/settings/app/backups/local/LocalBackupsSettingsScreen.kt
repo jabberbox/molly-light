@@ -91,7 +91,7 @@ internal fun LocalBackupsSettingsScreen(
 
   Scaffolds.Settings(
     title = stringResource(id = R.string.RemoteBackupsSettingsFragment__on_device_backups),
-    navigationIcon = ImageVector.vectorResource(CoreUiR.drawable.symbol_arrow_start_24),
+    navigationIcon = ImageVector.vectorResource(CoreUiR.drawable.light_ic_back),
     onNavigationClick = callback::onNavigationClick,
     snackbarHost = {
       Snackbars.Host(snackbarHostState)

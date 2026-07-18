@@ -220,7 +220,9 @@ private fun ConversationHeaderContent(
               .clip(BorderShape)
               .background(if (isSystemInDarkTheme()) SignalTheme.colors.colorTransparentInverse5 else SignalTheme.colors.colorTransparent5)
           } else {
-            Modifier.border(width = 2.5.dp, color = SignalTheme.colors.colorSurface3, shape = BorderShape)
+            // LIGHT-STYLE MONOCHROME PASS: no bordered card chrome, matching the
+            // rest of the app's flat, boxless look.
+            Modifier
           }
         )
         .padding(top = AvatarOverlapBelow + 12.dp, bottom = 24.dp, start = 24.dp, end = 24.dp)
@@ -434,11 +436,13 @@ private fun UnverifiedNamePill(
     ),
     style = MaterialTheme.typography.bodyMedium,
     fontWeight = FontWeight.Medium,
-    color = SignalTheme.colors.colorOnWarning,
+    // LIGHT-STYLE MONOCHROME PASS: was colorWarning/colorOnWarning (orange),
+    // the only remaining splash of color in the app outside per-chat accents.
+    color = MaterialTheme.colorScheme.onSurface,
     modifier = modifier
       .clip(RoundedCornerShape(26.dp))
       .clickable(onClick = onClick)
-      .background(SignalTheme.colors.colorWarning)
+      .background(SignalTheme.colors.colorSurface3)
       .padding(horizontal = 12.dp, vertical = 4.dp)
   )
 }

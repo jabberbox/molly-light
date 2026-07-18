@@ -8,6 +8,7 @@ package org.thoughtcrime.securesms.chats
 import androidx.compose.animation.core.Transition
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -24,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
-import org.thoughtcrime.securesms.window.AppScaffoldAnimationDefaults
 import org.thoughtcrime.securesms.window.AppScaffoldAnimationState
 import kotlin.time.Duration.Companion.seconds
 
@@ -94,10 +94,15 @@ fun ConversationLoadingMask(
   }
 }
 
+// LIGHT-PERF PASS: this crossfade used a 200ms tween, which meant an extra ~200ms of
+// full-screen bitmap+fragment alpha/offset compositing tacked on *after* the conversation
+// had already finished loading (confirmed via dumpsys gfxinfo framestats). snap() keeps
+// the pop-in-prevention (still waits for contentReady) but swaps to the real content
+// immediately once it's ready, instead of animating the swap.
 @Composable
 private fun Transition<Boolean>.fakeChatListAnimationState(): AppScaffoldAnimationState {
-  val alpha = animateFloat(transitionSpec = { AppScaffoldAnimationDefaults.tween() }) { if (it) 0f else 1f }
-  val offset = animateDp(transitionSpec = { AppScaffoldAnimationDefaults.tween() }) { if (it) (-48).dp else 0.dp }
+  val alpha = animateFloat(transitionSpec = { snap() }) { if (it) 0f else 1f }
+  val offset = animateDp(transitionSpec = { snap() }) { if (it) (-48).dp else 0.dp }
   return remember {
     AppScaffoldAnimationState(
       offset = offset,
@@ -108,7 +113,7 @@ private fun Transition<Boolean>.fakeChatListAnimationState(): AppScaffoldAnimati
 
 @Composable
 private fun Transition<Boolean>.chatAnimationState(hasFake: Boolean): AppScaffoldAnimationState {
-  val alpha = animateFloat(transitionSpec = { AppScaffoldAnimationDefaults.tween() }) { if (it) 1f else 0f }
+  val alpha = animateFloat(transitionSpec = { snap() }) { if (it) 1f else 0f }
   return if (!hasFake) {
     remember {
       AppScaffoldAnimationState(
@@ -117,7 +122,7 @@ private fun Transition<Boolean>.chatAnimationState(hasFake: Boolean): AppScaffol
       )
     }
   } else {
-    val offset = animateDp(transitionSpec = { AppScaffoldAnimationDefaults.tween() }) { if (it) 0.dp else 48.dp }
+    val offset = animateDp(transitionSpec = { snap() }) { if (it) 0.dp else 48.dp }
     remember {
       AppScaffoldAnimationState(
         offset = offset,

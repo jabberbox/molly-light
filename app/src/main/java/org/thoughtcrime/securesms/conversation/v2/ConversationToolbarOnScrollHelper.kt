@@ -41,7 +41,11 @@ class ConversationToolbarOnScrollHelper(
 
   @ColorRes
   private fun getActiveToolbarColor(hasWallpaper: Boolean): Int {
-    return if (hasWallpaper) R.color.conversation_toolbar_color_wallpaper_scrolled else MaterialR.attr.colorSurfaceContainer
+    // LIGHT-STYLE PASS: the scrolled ("active") toolbar color used to be a
+    // Material3 surface-container tone, which is visibly lighter than the
+    // app's solid black background -- matching the inactive/resting color
+    // here keeps the top bar the same black at all scroll positions.
+    return if (hasWallpaper) R.color.conversation_toolbar_color_wallpaper_scrolled else MaterialR.attr.colorSurface
   }
 
   @ColorRes

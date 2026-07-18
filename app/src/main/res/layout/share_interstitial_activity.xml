@@ -9,7 +9,7 @@
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         app:layout_constraintTop_toTopOf="parent"
-        app:navigationIcon="@drawable/symbol_arrow_start_24"
+        app:navigationIcon="@drawable/light_ic_back"
         app:title="@string/ShareInterstitialActivity__share"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize" />
@@ -38,6 +38,7 @@
         android:layout_marginTop="8dp"
         android:inputType="textMultiLine"
         android:textAppearance="@style/Signal.Text.Body"
+        android:textColor="?attr/colorOnSurface"
         app:layout_constraintBottom_toTopOf="@id/selected_list"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

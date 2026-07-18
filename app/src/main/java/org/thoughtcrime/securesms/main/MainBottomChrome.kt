@@ -31,7 +31,6 @@ import org.thoughtcrime.securesms.components.snackbars.rememberSnackbarState
 import org.thoughtcrime.securesms.megaphone.Megaphone
 import org.thoughtcrime.securesms.megaphone.MegaphoneActionController
 import org.thoughtcrime.securesms.megaphone.Megaphones
-import org.thoughtcrime.securesms.window.NavigationType
 
 interface MainBottomChromeCallback : MainFloatingActionButtonsCallback {
   fun onMegaphoneVisible(megaphone: Megaphone)
@@ -54,7 +53,6 @@ data class MainBottomChromeState(
 
 /**
  * Stack of bottom chrome components:
- * - The Floating Action buttons
  * - The megaphone view
  * - The snackbar
  */
@@ -66,24 +64,16 @@ fun MainBottomChrome(
   modifier: Modifier = Modifier
 ) {
   val isSplitPane = LocalResources.current.rememberIsSplitPane()
-  val navigationType = NavigationType.rememberNavigationType()
 
   Column(
     modifier = modifier
       .fillMaxWidth()
       .animateContentSize()
   ) {
-    if (state.mainToolbarMode == MainToolbarMode.FULL && navigationType != NavigationType.RAIL) {
-      Box(
-        contentAlignment = Alignment.CenterEnd,
-        modifier = Modifier.fillMaxWidth()
-      ) {
-        MainFloatingActionButtons(
-          destination = state.destination,
-          callback = callback
-        )
-      }
-    }
+    // LIGHT-STYLE PASS: camera/compose FABs used to float here above the bar on
+    // phones (navigationType == BAR); they now live directly in MainNavigationBar's
+    // row instead, folded in alongside Chats/Calls. Tablet/rail layouts still get
+    // their FABs inline via MainNavigationRail, untouched.
 
     if (state.mainToolbarMode == MainToolbarMode.FULL) {
       MainMegaphoneContainer(

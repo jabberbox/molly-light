@@ -7,6 +7,7 @@ package org.thoughtcrime.securesms
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -40,6 +41,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -275,6 +277,25 @@ class MainActivity :
     AppStartup.getInstance().onCriticalRenderEventStart()
 
     super.onCreate(savedInstanceState, ready)
+
+    // LIGHT-STYLE PASS: this app runs with FLAG_SECURE by default (screen security),
+    // which means Android's Recents/task-switcher can't capture a real preview
+    // thumbnail on resume -- that's an intentional privacy trade-off we're not
+    // touching. Without this, the fallback placeholder Android shows instead
+    // defaults to plain white, causing a white flash switching back to the app from
+    // Recents. TaskDescription's background color is used as that fallback
+    // placeholder specifically when no real thumbnail is available (including the
+    // FLAG_SECURE case), so setting it to the app's actual background color closes
+    // that gap without weakening the security flag itself. Builder API is 28+;
+    // minSdk here is 27, so this silently no-ops on that one old version.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      setTaskDescription(
+        ActivityManager.TaskDescription.Builder()
+          .setBackgroundColor(getColor(org.signal.core.ui.R.color.molly_background_dark))
+          .build()
+      )
+    }
+
     navigator = MainNavigator(this, mainNavigationViewModel)
 
     mediaSendLauncher = mediaSendLauncher()
@@ -549,6 +570,7 @@ class MainActivity :
               ) {
                 MainNavigationBar(
                   state = mainNavigationState,
+                  mainFloatingActionButtonsCallback = mainBottomChromeCallback,
                   onDestinationSelected = mainNavigationCallback
                 )
 
@@ -589,42 +611,53 @@ class MainActivity :
               Box(
                 modifier = Modifier.weight(1f)
               ) {
-                when (val destination = mainNavigationState.currentListLocation) {
-                  MainNavigationListLocation.CHATS -> {
-                    val state = key(destination) { rememberFragmentState() }
-                    AndroidFragment(
-                      clazz = ConversationListFragment::class.java,
-                      fragmentState = state,
-                      modifier = Modifier.fillMaxSize()
-                    )
-                  }
+                val currentDestination = mainNavigationState.currentListLocation
 
-                  MainNavigationListLocation.ARCHIVE -> {
-                    val state = key(destination) { rememberFragmentState() }
-                    AndroidFragment(
-                      clazz = ConversationListArchiveFragment::class.java,
-                      fragmentState = state,
-                      modifier = Modifier.fillMaxSize()
-                    )
-                  }
+                // LIGHT-STYLE PASS: switching tabs used to destroy and recreate each
+                // destination's Fragment from scratch every time (re-running its data
+                // queries and view setup), which is what made navigation feel laggy.
+                // Each destination's Fragment is now created once, on its first visit,
+                // and kept mounted (resized to 0dp rather than removed when inactive)
+                // so switching back to an already-visited tab is instant.
+                val visitedDestinations = remember { mutableStateSetOf(currentDestination) }
+                LaunchedEffect(currentDestination) {
+                  visitedDestinations.add(currentDestination)
+                }
 
-                  MainNavigationListLocation.CALLS -> {
-                    val state = key(destination) { rememberFragmentState() }
-                    AndroidFragment(
-                      clazz = CallLogFragment::class.java,
-                      fragmentState = state,
-                      modifier = Modifier.fillMaxSize()
-                    )
-                  }
+                if (MainNavigationListLocation.CHATS in visitedDestinations) {
+                  val state = rememberFragmentState()
+                  AndroidFragment(
+                    clazz = ConversationListFragment::class.java,
+                    fragmentState = state,
+                    modifier = if (currentDestination == MainNavigationListLocation.CHATS) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                  )
+                }
 
-                  MainNavigationListLocation.STORIES -> {
-                    val state = key(destination) { rememberFragmentState() }
-                    AndroidFragment(
-                      clazz = StoriesLandingFragment::class.java,
-                      fragmentState = state,
-                      modifier = Modifier.fillMaxSize()
-                    )
-                  }
+                if (MainNavigationListLocation.ARCHIVE in visitedDestinations) {
+                  val state = rememberFragmentState()
+                  AndroidFragment(
+                    clazz = ConversationListArchiveFragment::class.java,
+                    fragmentState = state,
+                    modifier = if (currentDestination == MainNavigationListLocation.ARCHIVE) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                  )
+                }
+
+                if (MainNavigationListLocation.CALLS in visitedDestinations) {
+                  val state = rememberFragmentState()
+                  AndroidFragment(
+                    clazz = CallLogFragment::class.java,
+                    fragmentState = state,
+                    modifier = if (currentDestination == MainNavigationListLocation.CALLS) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                  )
+                }
+
+                if (MainNavigationListLocation.STORIES in visitedDestinations) {
+                  val state = rememberFragmentState()
+                  AndroidFragment(
+                    clazz = StoriesLandingFragment::class.java,
+                    fragmentState = state,
+                    modifier = if (currentDestination == MainNavigationListLocation.STORIES) Modifier.fillMaxSize() else Modifier.size(0.dp)
+                  )
                 }
 
                 MainBottomChrome(
@@ -642,9 +675,14 @@ class MainActivity :
                 NavDisplay(
                   backStack = mainNavigationViewModel.chatsBackStackEntries,
                   onBack = { mainNavigationViewModel.popChatsDetailLocation() },
-                  transitionSpec = TransitionSpecs.HorizontalSlide.transitionSpec,
-                  popTransitionSpec = TransitionSpecs.HorizontalSlide.popTransitionSpec,
-                  predictivePopTransitionSpec = TransitionSpecs.HorizontalSlide.predictivePopTransitionSpec,
+                  // LIGHT-PERF PASS: the stock slide+fade transition here was measured
+                  // (dumpsys gfxinfo framestats) costing 45-386ms of main-thread time per
+                  // frame while opening/closing a conversation, well beyond its 16ms frame
+                  // budget on this hardware. Light's whole interaction model is meant to
+                  // feel immediate, so skip the animation outright rather than tune it.
+                  transitionSpec = TransitionSpecs.None.transitionSpec,
+                  popTransitionSpec = TransitionSpecs.None.popTransitionSpec,
+                  predictivePopTransitionSpec = TransitionSpecs.None.predictivePopTransitionSpec,
                   entryProvider = entryProvider { chatsNavEntries(convoTransitionState) }
                 )
               }

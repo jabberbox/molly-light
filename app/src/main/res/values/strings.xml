@@ -2343,6 +2343,8 @@
 
     <!-- Content description of the pin image -->
     <string name="PlacePickerActivity_drop_pin">Drop pin</string>
+    <!-- Content description of the button that closes the place picker screen -->
+    <string name="PlacePickerActivity_close">Close</string>
     <string name="PlacePickerActivity_accept_address">Accept address</string>
 
     <!-- PlayServicesProblemFragment -->
@@ -3634,6 +3636,9 @@
     <!-- Option in send button context menu to schedule the message instead of sending it directly -->
     <string name="conversation_activity__sim_n">SIM %1$d</string>
     <string name="conversation_activity__send">Send</string>
+    <string name="conversation_activity__call_button_content_description">Call</string>
+    <string name="conversation_activity__stop_and_send_recording_description">Stop and send recording</string>
+    <string name="conversation_activity__cancel_recording_description">Cancel recording</string>
     <string name="conversation_activity__compose_description">Message composition</string>
     <string name="conversation_activity__emoji_toggle_description">Toggle emoji keyboard</string>
     <string name="conversation_activity__attachment_thumbnail">Attachment Thumbnail</string>
@@ -6010,6 +6015,7 @@
     <!--    Header for the screen that displays the licenses of the open-source software dependencies of the Signal app-->
     <string name="HelpSettingsFragment__licenses">Licenses</string>
     <string name="HelpSettingsFragment__terms_amp_privacy_policy">Terms &amp; Privacy Policy</string>
+    <string name="HelpSettingsFragment__molly_light_unofficial_fork">Molly Light is an unofficial fork of Molly, not affiliated with Molly or Signal</string>
     <string mollyify="true" name="HelpFragment__copyright_signal_messenger">Copyright Molly Messenger</string>
     <string name="HelpFragment__licenced_under_the_agplv3">Licensed under the GNU AGPLv3</string>
     <!-- Non-English translations should use "Signal is a nonprofit." instead, dropping the 501c3 reference. -->
@@ -6371,6 +6377,8 @@
     <string name="MediaReviewFragment__photo_set_to_high_quality">Photo set to high quality</string>
     <!-- Small notification presented to the user when they set their still image to be sent in standard (lower than high) visual quality. -->
     <string name="MediaReviewFragment__photo_set_to_standard_quality">Photo set to standard quality</string>
+    <!-- Accessibility label describing the close button on the Media review screen -->
+    <string name="MediaReviewFragment__close_accessibility_label">Close</string>
     <!-- Accessibility label describing the add media button on the Media review screen -->
     <string name="MediaReviewFragment__add_media_accessibility_label">Add a Media</string>
     <!-- Accessibility label describing the brush and pen button on the Media review screen -->

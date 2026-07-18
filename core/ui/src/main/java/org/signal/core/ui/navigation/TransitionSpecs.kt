@@ -118,5 +118,26 @@ object TransitionSpecs {
       NavDisplay.transitionSpec { EnterTransition.None togetherWith ExitTransition.None } +
         NavDisplay.popTransitionSpec { EnterTransition.None togetherWith ExitTransition.None } +
         NavDisplay.predictivePopTransitionSpec { EnterTransition.None togetherWith ExitTransition.None }
+
+    // LIGHT-PERF PASS: same no-op transition as `metadata` above, but shaped as direct
+    // NavDisplay transitionSpec/popTransitionSpec/predictivePopTransitionSpec lambdas
+    // (like HorizontalSlide's) rather than per-entry metadata, for call sites that wire
+    // NavDisplay directly. The Compose AnimatedContent slide+fade transition runs on the
+    // Choreographer animation callback and was measured (via `dumpsys gfxinfo framestats`
+    // on real hardware) taking 45-386ms per frame instead of its ~16ms budget, stalling
+    // the traversal phase and dominating the visible lag when opening/closing a
+    // conversation. Skipping it entirely is the direct fix rather than trying to make an
+    // already-instant-feeling navigation model animate faster.
+    val transitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
+      EnterTransition.None togetherWith ExitTransition.None
+    }
+
+    val popTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.() -> ContentTransform = {
+      EnterTransition.None togetherWith ExitTransition.None
+    }
+
+    val predictivePopTransitionSpec: AnimatedContentTransitionScope<Scene<NavKey>>.(@NavigationEvent.SwipeEdge Int) -> ContentTransform = {
+      EnterTransition.None togetherWith ExitTransition.None
+    }
   }
 }

@@ -5,7 +5,6 @@
 
 package org.thoughtcrime.securesms.restore.selection
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +69,10 @@ class SelectRestoreMethodFragment : ComposeFragment() {
             }
           },
           onDismiss = { showSkipRestoreWarning = false },
-          confirmColor = MaterialTheme.colorScheme.error,
+          // LIGHT-STYLE PASS: this used to explicitly set colorScheme.error (a vivid
+          // pink-red, the one color role the reskin's monochrome theme left untouched)
+          // for the "Skip restore" confirm button, which reads as washed-out/disabled on
+          // the LP3's B&W display. Falls back to the theme default (near-white) instead.
           properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
         )
       }

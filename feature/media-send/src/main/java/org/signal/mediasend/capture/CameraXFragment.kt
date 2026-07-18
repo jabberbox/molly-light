@@ -290,6 +290,7 @@ private fun CameraFragment.Controller.onCameraXScreenEvent(event: CameraXScreenE
     CameraXScreenEvent.VideoCaptureError -> onVideoCaptureError()
     CameraXScreenEvent.GalleryClicked -> onGalleryClicked()
     CameraXScreenEvent.CameraCountButtonClicked -> onCameraCountButtonClicked()
+    CameraXScreenEvent.CloseClicked -> onCloseClicked()
   }
 }
 
@@ -492,7 +493,8 @@ fun CameraXScreen(
               },
               stringResources = StringResources(
                 photoCaptureFailed = R.string.CameraXFragment_photo_capture_failed,
-                photoProcessingFailed = R.string.CameraXFragment_photo_processing_failed
+                photoProcessingFailed = R.string.CameraXFragment_photo_processing_failed,
+                close = R.string.CameraXFragment_close
               )
             )
           }
@@ -626,6 +628,10 @@ private fun handleHudEvent(
 
     is StandardCameraHudEvents.AudioPermissionRequired -> {
       onRequestMicPermission()
+    }
+
+    is StandardCameraHudEvents.CloseClicked -> {
+      onEvent(CameraXScreenEvent.CloseClicked)
     }
   }
 }

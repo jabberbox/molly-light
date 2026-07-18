@@ -7,8 +7,6 @@ package org.thoughtcrime.securesms.main
 
 import androidx.annotation.RawRes
 import androidx.annotation.StringRes
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -19,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -39,29 +38,26 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.BlendModeColorFilterCompat
-import androidx.core.graphics.BlendModeCompat
-import com.airbnb.lottie.LottieProperty
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.rememberLottieComposition
-import com.airbnb.lottie.compose.rememberLottieDynamicProperties
-import com.airbnb.lottie.compose.rememberLottieDynamicProperty
 import org.signal.core.ui.compose.DayNightPreviews
 import org.signal.core.ui.compose.Previews
 import org.signal.core.ui.compose.theme.colorAttribute
 import org.thoughtcrime.securesms.R
+import org.signal.core.ui.R as CoreUiR
 
-private val LOTTIE_SIZE = 28.dp
+// LIGHT-STYLE PASS: uniform icon size app-wide, derived from a caliper
+// measurement against physical Light Phone III hardware (~5.6mm target).
+private val NAV_ICON_SIZE = 32.dp
 
 enum class MainNavigationListLocation(
   @StringRes val label: Int,
@@ -105,12 +101,13 @@ data class MainNavigationState(
 @Composable
 fun MainNavigationBar(
   state: MainNavigationState,
+  mainFloatingActionButtonsCallback: MainFloatingActionButtonsCallback,
   onDestinationSelected: (MainNavigationListLocation) -> Unit
 ) {
   NavigationBar(
     containerColor = colorAttribute(R.attr.navbar_container_color),
     contentColor = MaterialTheme.colorScheme.onSurface,
-    modifier = Modifier.height(if (state.compact) 48.dp else 80.dp),
+    modifier = Modifier.height(48.dp),
     windowInsets = WindowInsets(0, 0, 0, 0)
   ) {
     val entries = remember(state.isStoriesFeatureEnabled) {
@@ -143,15 +140,69 @@ fun MainNavigationBar(
             selected = selected
           )
         },
-        label = if (state.compact) null else {
-          { NavigationDestinationLabel(destination) }
-        },
+        // LIGHT-STYLE PASS: no text labels under the icons, matching the Light
+        // reference's icon-only bottom bar.
+        label = null,
         onClick = {
           onDestinationSelected(destination)
         },
         modifier = Modifier.drawNavigationBarBadge(count = badgeCount, compact = state.compact)
       )
     }
+
+    // LIGHT-STYLE PASS: camera and the primary action (compose/new call) used to
+    // float above the bar as separate FABs; folded into the same row here so the
+    // whole bottom chrome reads as one flat icon strip, matching the Light
+    // reference's single row of icons. Shown on Calls too (not just Chats) so
+    // the bar stays a consistent 4 icons across both tabs -- tapping it opens
+    // the exact same camera flow as the Chats tab's camera icon.
+    if (state.currentListLocation == MainNavigationListLocation.CHATS || state.currentListLocation == MainNavigationListLocation.ARCHIVE || state.currentListLocation == MainNavigationListLocation.CALLS) {
+      NavigationBarItem(
+        colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
+        selected = false,
+        icon = {
+          // LIGHT-STYLE PASS: real Light SDK asset (light_ic_camera), sized to
+          // NAV_ICON_SIZE to match the app-wide uniform icon scale.
+          Icon(
+            imageVector = ImageVector.vectorResource(R.drawable.light_ic_camera),
+            contentDescription = stringResource(R.string.conversation_list_fragment__open_camera_description),
+            modifier = Modifier.size(NAV_ICON_SIZE)
+          )
+        },
+        label = null,
+        onClick = {
+          mainFloatingActionButtonsCallback.onCameraClick(MainNavigationListLocation.CHATS)
+        }
+      )
+    }
+
+    NavigationBarItem(
+      colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
+      selected = false,
+      icon = {
+        // LIGHT-STYLE PASS: real Light SDK asset (light_ic_compose, the
+        // pencil-with-plus icon) for the chats compose action.
+        val (icon, contentDescriptionId) = when (state.currentListLocation) {
+          MainNavigationListLocation.ARCHIVE, MainNavigationListLocation.CHATS -> R.drawable.light_ic_compose to R.string.conversation_list_fragment__fab_content_description
+          MainNavigationListLocation.CALLS -> R.drawable.symbol_phone_plus_24 to R.string.CallLogFragment__start_a_new_call
+          MainNavigationListLocation.STORIES -> CoreUiR.drawable.symbol_camera_24 to R.string.conversation_list_fragment__open_camera_description
+        }
+
+        Icon(
+          imageVector = ImageVector.vectorResource(icon),
+          contentDescription = stringResource(contentDescriptionId),
+          modifier = Modifier.size(NAV_ICON_SIZE)
+        )
+      },
+      label = null,
+      onClick = {
+        when (state.currentListLocation) {
+          MainNavigationListLocation.ARCHIVE, MainNavigationListLocation.CHATS -> mainFloatingActionButtonsCallback.onNewChatClick()
+          MainNavigationListLocation.CALLS -> mainFloatingActionButtonsCallback.onNewCallClick()
+          MainNavigationListLocation.STORIES -> mainFloatingActionButtonsCallback.onCameraClick(MainNavigationListLocation.STORIES)
+        }
+      }
+    )
   }
 }
 
@@ -323,25 +374,25 @@ private fun NavigationDestinationIcon(
   destination: MainNavigationListLocation,
   selected: Boolean
 ) {
-  val dynamicProperties = rememberLottieDynamicProperties(
-    rememberLottieDynamicProperty(
-      property = LottieProperty.COLOR_FILTER,
-      value = BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
-        MaterialTheme.colorScheme.onSurface.hashCode(),
-        BlendModeCompat.SRC_ATOP
-      ),
-      keyPath = arrayOf("**")
-    )
-  )
+  // LIGHT-STYLE PASS: replaced the two-state Lottie animation with a plain
+  // static icon -- matches Light's preference for instant, unanimated state
+  // changes, and lets the calls-tab icon be the real Light SDK asset
+  // (light_ic_call) rather than Signal's own animated glyph. No authentic
+  // Light asset exists for a chats/message-list icon, so that one keeps
+  // Signal's own plain chat-bubble outline. Selection is still conveyed by
+  // the existing indicator-pill background, so no selected/unselected icon
+  // variant is needed.
+  val icon = when (destination) {
+    MainNavigationListLocation.CHATS, MainNavigationListLocation.ARCHIVE -> R.drawable.symbol_chat_24
+    MainNavigationListLocation.CALLS -> R.drawable.light_ic_call
+    MainNavigationListLocation.STORIES -> CoreUiR.drawable.symbol_camera_24
+  }
 
-  val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(destination.icon))
-  val progress by animateFloatAsState(targetValue = if (selected) 1f else 0f, animationSpec = tween(durationMillis = composition?.duration?.toInt() ?: 0))
-
-  LottieAnimation(
-    composition = composition,
-    progress = { if (selected) progress else 0f },
-    dynamicProperties = dynamicProperties,
-    modifier = Modifier.size(LOTTIE_SIZE)
+  Icon(
+    imageVector = ImageVector.vectorResource(icon),
+    contentDescription = null,
+    tint = MaterialTheme.colorScheme.onSurface,
+    modifier = Modifier.size(NAV_ICON_SIZE)
   )
 }
 
@@ -392,6 +443,7 @@ private fun MainNavigationBarPreview() {
         currentListLocation = selected,
         compact = false
       ),
+      mainFloatingActionButtonsCallback = MainFloatingActionButtonsCallback.Empty,
       onDestinationSelected = { selected = it }
     )
   }

@@ -89,7 +89,7 @@ internal fun MediaSelectScreen(
       is MediaSelectScreenState.Folders -> stringResource(R.string.MediaSelectScreen__gallery)
       is MediaSelectScreenState.Files -> state.selectedMediaFolder.title
     },
-    navigationIcon = ImageVector.vectorResource(org.signal.core.ui.R.drawable.symbol_arrow_start_24),
+    navigationIcon = ImageVector.vectorResource(org.signal.core.ui.R.drawable.light_ic_back),
     onNavigationClick = { backDispatcher?.onBackPressed() }
   ) { paddingValues ->
     Column(

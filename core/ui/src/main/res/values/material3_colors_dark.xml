@@ -33,7 +33,9 @@
     <color name="signal_dark_colorTransparent3">#29FFFFFF</color>
     <color name="signal_dark_colorTransparent4">#7AFFFFFF</color>
     <color name="signal_dark_colorTransparent5">#B8FFFFFF</color>
-    <color name="signal_dark_colorNeutral">#121212</color>
+    <!-- LIGHT-STYLE PASS: true black, used for the media/photo preview
+         screen's background (TextSecure.BaseMediaPreview). -->
+    <color name="signal_dark_colorNeutral">#000000</color>
     <color name="signal_dark_colorNeutralVariant">#5C5C5C</color>
     <color name="signal_dark_colorTransparentInverse1">#0A000000</color>
     <color name="signal_dark_colorTransparentInverse2">#14000000</color>
