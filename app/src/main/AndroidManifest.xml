@@ -1,0 +1,1586 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:targetSandboxVersion="2">
+
+    <!-- ======================================= -->
+    <!-- Features                                -->
+    <!-- ======================================= -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
+
+    <!-- ======================================= -->
+    <!-- Permissions                             -->
+    <!-- ======================================= -->
+    <permission android:name="${applicationId}.ACCESS_SECRETS" android:label="Access to TextSecure Secrets" android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.ACCESS_SECRETS" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <uses-permission android:name="android.permission.INSTALL_SHORTCUT" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RAISED_THREAD_PRIORITY" />
+    <uses-permission android:name="android.permission.READ_CALL_STATE" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- MOLLY: Keep for backward compatibility with Android 11–12 storage model -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PROFILE" />
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" tools:ignore="ExactAlarm" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+    <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+
+    <application
+        android:name=".ApplicationContext"
+        android:allowBackup="true"
+        android:backupAgent=".absbackup.SignalBackupAgent"
+        android:enableOnBackInvokedCallback="false"
+        android:fullBackupOnly="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:largeHeap="true"
+        android:memtagMode="async"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:resizeableActivity="true"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Molly.Starting"
+        tools:replace="android:networkSecurityConfig">
+
+        <meta-data
+            android:name="android.supports_size_changes"
+            android:value="true" />
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            android:value="true" />
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="android.webkit.WebView.MetricsOptOut"
+            android:value="true" />
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="false" />
+        <meta-data
+            android:name="android.telephony.PROPERTY_SATELLITE_DATA_OPTIMIZED"
+            android:value="${applicationId}" />
+
+        <!-- ======================================= -->
+        <!-- Activities                              -->
+        <!-- ======================================= -->
+        <activity
+            android:name=".components.webrtc.v2.WebRtcCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:taskAffinity=".calling"
+            android:theme="@style/TextSecure.DarkTheme.WebRTCCall"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".messagerequests.CalleeMustAcceptMessageRequestActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@style/TextSecure.DarkNoActionBar" />
+
+        <activity
+            android:name=".DeviceProvisioningActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="tsdevice" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="linkdevice"
+                    android:scheme="sgnl" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".sharing.interstitial.ShareInterstitialActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".sharing.v2.ShareActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="application/*" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="image/*" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.service.chooser.chooser_target_service"
+                android:value="androidx.sharetarget.ChooserTargetServiceCompat"
+                tools:targetApi="23" />
+
+        </activity>
+
+        <activity
+            android:name=".stickers.preview.StickerPackPreviewActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden">
+            <intent-filter>
+                <action
+                    android:name="android.intent.action.VIEW"
+                    android:exported="true" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="addstickers"
+                    android:scheme="sgnl" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="signal.art"
+                    android:pathPrefix="/addstickers"
+                    android:scheme="https" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".deeplinks.DeepLinkEntryActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@style/Signal.Transparent">
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="signal.group"
+                    android:scheme="sgnl" />
+            </intent-filter>
+
+            <intent-filter
+                tools:targetApi="23">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="signal.group"
+                    android:scheme="https" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="signaldonations.org" />
+                <data android:pathPrefix="/stripe/return/ideal" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="sgnl" />
+                <data android:host="ideal" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="signal.me" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="sgnl" />
+                <data android:host="signal.me" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="signal.link" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="sgnl" />
+                <data android:host="signal.link" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="sgnl" />
+                <data android:host="rereg" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".conversation.v2.ConversationActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:parentActivityName=".MainActivity"
+            android:resizeableActivity="true"
+            android:windowSoftInputMode="stateUnchanged">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="org.thoughtcrime.securesms.MainActivity" />
+        </activity>
+
+        <activity
+            android:name=".conversation.BubbleConversationActivity"
+            android:allowEmbedded="true"
+            android:exported="false"
+            android:resizeableActivity="true"
+            android:theme="@style/Signal.DayNight" />
+
+        <activity
+            android:name=".conversation.ConversationPopupActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/TextSecure.LightTheme.Popup"
+            android:windowSoftInputMode="stateVisible" />
+
+        <activity
+            android:name=".groups.ui.invitesandrequests.ManagePendingAndRequestingMembersActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".recipients.ui.disappearingmessages.RecipientDisappearingMessagesActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".migrations.ApplicationMigrationActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".PassphraseCreateActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:label="@string/AndroidManifest__create_passphrase"
+            android:launchMode="singleTask"
+            android:theme="@style/TextSecure.LightIntroTheme"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".PassphrasePromptActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Signal.DayNight"
+            android:windowSoftInputMode="stateVisible" />
+
+        <activity
+            android:name=".conversation.NewConversationActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".recipients.ui.findby.FindByActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
+
+
+        <activity
+            android:name=".calls.new.NewCallActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".PushContactSelectionActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:label="@string/AndroidManifest__select_contacts"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".search.SingleContactSelectionActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:label="@string/AndroidManifest__select_contacts"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".giph.ui.GiphyActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".mediasend.v2.MediaSelectionActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:theme="@style/TextSecure.DarkNoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing" />
+
+        <activity
+            android:name=".mediasend.v3.MediaSendV3Activity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing" />
+
+        <activity
+            android:name=".conversation.mutiselect.forward.MultiselectForwardActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing" />
+
+        <activity
+            android:name=".mediasend.v2.stories.StoriesMultiselectForwardActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing" />
+
+        <activity
+            android:name=".verify.VerifyIdentityActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".components.settings.app.AppSettingsActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="true"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.NOTIFICATION_PREFERENCES" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".stories.my.MyStoriesActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".stories.settings.StorySettingsActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize" />
+
+        <activity
+            android:name=".stories.archive.StoryArchiveActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".stories.viewer.StoryViewerActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:parentActivityName=".MainActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/TextSecure.DarkNoActionBar.StoryViewer"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing">
+
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="org.thoughtcrime.securesms.MainActivity" />
+        </activity>
+
+        <activity
+            android:name=".components.settings.app.changenumber.ChangeNumberLockActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".components.settings.conversation.ConversationSettingsActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Signal.DayNight.ConversationSettings"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".components.settings.conversation.CallInfoActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".wallpaper.ChatWallpaperActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".wallpaper.ChatWallpaperPreviewActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+        <activity
+            android:name=".devicetransfer.olddevice.OldDeviceTransferActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/TextSecure.LightRegistrationTheme" />
+
+        <activity
+            android:name=".devicetransfer.olddevice.OldDeviceExitActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true" />
+
+        <activity
+            android:name=".registration.olddevice.QuickTransferOldDeviceActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".registration.ui.RegistrationActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
+
+        <activity
+            android:name=".restore.RestoreActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
+
+        <activity
+            android:name=".revealable.ViewOnceMessageActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/TextSecure.FullScreenMedia"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".stickers.manage.StickerManagementActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".logsubmit.SubmitDebugLogActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".mediapreview.MediaPreviewV2Activity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:label="@string/AndroidManifest__media_preview"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".AvatarPreviewActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:label="@string/AndroidManifest__media_preview"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".avatar.photo.PhotoEditorActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
+            android:exported="false"
+            android:label="@string/AndroidManifest__media_preview"
+            android:theme="@style/TextSecure.DarkNoActionBar"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".starred.StarredMessagesActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".mediaoverview.MediaOverviewActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".DummyActivity"
+            android:allowTaskReparenting="true"
+            android:alwaysRetainTaskState="false"
+            android:clearTaskOnLaunch="true"
+            android:enabled="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
+            android:stateNotNeeded="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <activity
+            android:name=".SystemContactsEntrypointActivity"
+            android:exported="true">
+            <intent-filter tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.org.thoughtcrime.securesms.contact" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".webrtc.VoiceCallShare"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:permission="android.permission.CALL_PHONE"
+            android:theme="@style/NoAnimation.Theme.BlackScreen">
+
+            <intent-filter tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.org.thoughtcrime.securesms.call" />
+            </intent-filter>
+
+            <intent-filter tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.org.thoughtcrime.securesms.videocall" />
+            </intent-filter>
+
+        </activity>
+
+        <activity
+            android:name=".mediasend.AvatarSelectionActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/TextSecure.DarkNoActionBar" />
+
+        <activity
+            android:name=".blocked.BlockedUsersActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/TextSecure.LightTheme"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
+            android:name=".scribbles.ImageEditorStickerSelectActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".profiles.edit.CreateProfileActivity"
+            android:exported="false"
+            android:theme="@style/TextSecure.LightRegistrationTheme"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+
+        <activity
+            android:name=".registration.ui.restore.RemoteRestoreActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".registration.ui.restore.local.RestoreLocalBackupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".profiles.manage.EditProfileActivity"
+            android:exported="false"
+            android:theme="@style/TextSecure.LightTheme"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+
+        <activity
+            android:name=".nicknames.NicknameActivity"
+            android:exported="false"
+            android:theme="@style/TextSecure.LightTheme"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+
+        <activity
+            android:name=".lock.v2.CreateSvrPinActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/TextSecure.LightRegistrationTheme"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".lock.v2.SvrMigrationActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/TextSecure.LightRegistrationTheme"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".contacts.TurnOffContactJoinedNotificationsActivity"
+            android:exported="false"
+            android:theme="@style/TextSecure.DialogActivity" />
+
+        <activity
+            android:name=".contactshare.ContactShareEditActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/TextSecure.LightTheme" />
+
+        <activity
+            android:name=".contactshare.ContactNameEditActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".contactshare.SharedContactDetailsActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".ShortcutLauncherActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="true"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".maps.PlacePickerActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:label="@string/PlacePickerActivity_title"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden"
+            android:enableOnBackInvokedCallback="true"
+            android:exported="false"
+            android:resizeableActivity="true"
+            android:theme="@style/Theme.Molly.Starting"
+            android:windowSoftInputMode="stateUnchanged" />
+
+        <activity
+            android:name=".pin.PinRestoreActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".groups.ui.creategroup.CreateGroupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".groups.ui.addtogroup.AddToGroupsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".groups.ui.addmembers.AddMembersActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".groups.ui.creategroup.details.AddGroupDetailsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".groups.ui.chooseadmin.ChooseNewAdminActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false" />
+
+        <activity
+            android:name=".megaphone.ClientDeprecatedActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".ratelimit.RecaptchaProofActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".wallpaper.crop.WallpaperImageSelectionActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/TextSecure.DarkNoActionBar" />
+
+        <activity
+            android:name=".wallpaper.crop.WallpaperCropActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Signal.WallpaperCropper" />
+
+        <activity
+            android:name=".components.settings.app.usernamelinks.main.QrImageSelectionActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/TextSecure.DarkNoActionBar" />
+
+        <activity
+            android:name=".components.settings.app.usernamelinks.main.UsernameQrScannerActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".reactions.edit.EditReactionsActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".components.settings.app.subscription.donate.CheckoutFlowActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".backup.v2.ui.subscription.MessageBackupsCheckoutActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".backup.v2.ui.verify.VerifyBackupKeyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".groups.ui.incommon.GroupsInCommonActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name="im.molly.unifiedpush.components.settings.app.notifications.MollySocketQrScannerActivity"
+            android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name="im.molly.unifiedpush.UnifiedPushDefaultDistributorLinkActivity"
+            android:exported="false"
+            android:theme="@style/TextSecure.DialogActivity" />
+
+        <activity
+            android:name=".groups.memberlabel.MemberLabelActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <!-- ======================================= -->
+        <!-- Activity Aliases                        -->
+        <!-- ======================================= -->
+        <activity-alias
+            android:name=".RoutingActivity"
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltYellow"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_heart"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_heart" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_heart" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltBubbles"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_xmas"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_xmas" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_xmas" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltChat"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_neon"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_neon" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_neon" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltNews"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_zen"
+            android:label="@string/app_icon_label_zen"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_zen" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_zen" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltNotes"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_notes"
+            android:label="@string/app_icon_label_notes"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_notes" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_notes" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltColor"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_signal"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_signal" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_signal" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltDark"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_colorful"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_colorful" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_colorful" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltDarkVariant"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_gold"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_gold" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_gold" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltWhite"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_light"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_light" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_light" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltWaves"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_music"
+            android:label="@string/app_icon_label_music"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_music" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_music" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <activity-alias
+            android:name=".RoutingActivityAltWeather"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_alt_moon"
+            android:label="@string/app_icon_label_moon"
+            android:targetActivity=".MainActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.MULTIWINDOW_LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.sec.minimode.icon.portrait.normal"
+                android:resource="@mipmap/ic_launcher_alt_moon" />
+            <meta-data
+                android:name="com.sec.minimode.icon.landscape.normal"
+                android:resource="@mipmap/ic_launcher_alt_moon" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+
+        </activity-alias>
+
+        <!-- ======================================= -->
+        <!-- Services                                -->
+        <!-- ======================================= -->
+        <service
+            android:name=".service.KeyCachingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="remoteMessaging" />
+
+        <service
+            android:name=".service.WipeMemoryService"
+            android:exported="false"
+            android:foregroundServiceType="remoteMessaging" />
+
+        <service
+            android:name=".messages.IncomingMessageObserver$ForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="remoteMessaging" />
+
+        <service
+            android:name=".messages.IncomingMessageObserver$ProcessLifetimeHintService"
+            android:enabled="true"
+            android:exported="false" />
+
+
+        <service
+            android:name=".components.voice.VoiceNotePlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name="androidx.media.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".service.AccountAuthenticatorService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/authenticator" />
+        </service>
+
+        <service
+            android:name=".service.ContactsSyncAdapterService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+            <meta-data
+                android:name="android.provider.CONTACTS_STRUCTURE"
+                android:resource="@xml/contactsformat" />
+        </service>
+
+        <service
+            android:name=".service.GenericForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".service.AttachmentProgressService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".service.BackupProgressService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".service.BackupMediaRestoreService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".gcm.FcmFetchBackgroundService"
+            android:exported="false" />
+
+        <service
+            android:name=".gcm.FcmFetchForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="remoteMessaging" />
+
+        <service
+            android:name=".gcm.FcmReceiveService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".gcm.FcmJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            tools:targetApi="26" />
+
+        <service
+            android:name=".jobmanager.JobSchedulerScheduler$SystemService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            tools:targetApi="26" />
+
+        <service
+            android:name=".service.webrtc.ActiveCallManager$ActiveCallForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|microphone|camera|phoneCall|mediaProjection" />
+
+        <!-- ======================================= -->
+        <!-- Receivers                               -->
+        <!-- ======================================= -->
+        <receiver
+            android:name=".notifications.MarkReadReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.thoughtcrime.securesms.notifications.CLEAR" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".notifications.RemoteReplyReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.thoughtcrime.securesms.notifications.WEAR_REPLY" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.ExpirationListener"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.ExpiringStoriesManager$ExpireStoriesAlarm"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.ExpiringArchivedStoriesManager$ExpireArchivedStoriesAlarm"
+            android:exported="false" />
+
+        <receiver
+            android:name=".revealable.ViewOnceMessageManager$ViewOnceAlarm"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.ScheduledMessageManager$ScheduledMessagesAlarm"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.PinnedMessageManager$PinnedMessagesAlarm"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.PendingRetryReceiptManager$PendingRetryReceiptAlarm"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.TrimThreadsByDateManager$TrimThreadsByDateAlarm"
+            android:exported="false" />
+
+        <receiver
+            android:name="org.signal.core.util.ClearClipboardAlarmReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.DirectoryRefreshListener"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.RotateSignedPreKeyListener"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.RotateSenderCertificateListener"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".messageprocessingalarm.RoutineMessageFetchReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="org.thoughtcrime.securesms.action.PROCESS_MESSAGES" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.LocalBackupListener"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.MessageBackupListener"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.AnalyzeDatabaseAlarmListener"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="org.thoughtcrime.securesms.jobs.ForegroundServiceUtil$Receiver"
+            android:exported="false" />
+
+        <!-- MOLLY: Duplicates functionality of existing BootReceiver -->
+
+        <receiver
+            android:name=".notifications.LocaleChangedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET"/> <!-- MOLLY: Triggered by 12/24h format change -->
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".notifications.MessageNotifier$ReminderReceiver" />
+
+        <receiver
+            android:name=".notifications.DeleteNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.thoughtcrime.securesms.DELETE_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".service.PanicResponderListener"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="info.guardianproject.panic.action.TRIGGER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- MOLLY: Duplicates functionality of existing BootReceiver -->
+
+        <receiver
+            android:name=".service.webrtc.ActiveCallManager$ActiveCallServiceReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.thoughtcrime.securesms.service.webrtc.ActiveCallAction.DENY" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="org.thoughtcrime.securesms.service.webrtc.ActiveCallAction.HANGUP" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="im.molly.unifiedpush.receiver.UnifiedPushReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.MESSAGE" />
+                <action android:name="org.unifiedpush.android.connector.UNREGISTERED" />
+                <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT" />
+                <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- ======================================= -->
+        <!-- Providers                               -->
+        <!-- ======================================= -->
+        <provider
+            android:name=".providers.AvatarProvider"
+            android:authorities="${applicationId}.avatar"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+        <provider
+            android:name=".providers.PartProvider"
+            android:authorities="${applicationId}.part"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+        <provider
+            android:name=".providers.BlobContentProvider"
+            android:authorities="${applicationId}.blob"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+
+        </provider>
+
+    </application>
+</manifest>

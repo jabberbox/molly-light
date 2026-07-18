@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2023 Signal Messenger, LLC
+  ~ SPDX-License-Identifier: AGPL-3.0-only
+  -->
+
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:parentTag="android.widget.FrameLayout"
+    tools:viewBindingIgnore="true">
+
+    <ImageView
+        android:id="@+id/thumbnail_blurhash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
+        android:clickable="false"
+        android:contentDescription="@string/conversation_item__mms_image_description"
+        android:longClickable="false"
+        android:scaleType="fitCenter" />
+
+    <ImageView
+        android:id="@+id/thumbnail_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
+        android:clickable="false"
+        android:contentDescription="@string/conversation_item__mms_image_description"
+        android:longClickable="false"
+        android:scaleType="centerCrop" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/thumbnail_caption_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/ThumbnailView_Has_a_caption_description"
+        android:padding="6dp"
+        android:src="@drawable/symbol_caption_24"
+        android:visibility="gone"
+        app:tint="@color/core_white"
+        tools:visibility="visible" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/thumbnail_error"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_gravity="center"
+        android:longClickable="false"
+        android:visibility="gone"
+        app:srcCompat="@drawable/ic_error_outline_24"
+        app:tint="?attr/colorOnSurface"
+        tools:visibility="visible" />
+
+    <FrameLayout
+        android:id="@+id/play_overlay"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:background="@drawable/transfer_controls_play_background"
+        android:longClickable="false"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="12dp"
+            android:contentDescription="@string/ThumbnailView_Play_video_description"
+            android:scaleType="fitXY"
+            android:tint="@color/signal_colorOnCustom"
+            app:srcCompat="@drawable/triangle_right"
+            tools:ignore="RtlHardcoded,RtlSymmetry" />
+
+    </FrameLayout>
+
+    <ViewStub
+        android:id="@+id/transfer_controls_stub"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:background="@color/transparent"
+        android:layout="@layout/transfer_controls_stub" />
+
+    <View
+        android:id="@+id/thumbnail_media_archive"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_gravity="top|left"
+        android:layout_margin="8dp"
+        android:background="@drawable/circle_tintable"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+</merge>

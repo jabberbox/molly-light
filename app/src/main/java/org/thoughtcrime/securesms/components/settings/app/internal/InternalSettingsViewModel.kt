@@ -1,0 +1,315 @@
+package org.thoughtcrime.securesms.components.settings.app.internal
+
+import android.content.Context
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import io.reactivex.rxjava3.core.Observable
+import org.signal.ringrtc.CallManager
+import org.thoughtcrime.securesms.components.settings.DividerPreference
+import org.thoughtcrime.securesms.components.settings.PreferenceModel
+import org.thoughtcrime.securesms.components.settings.SectionHeaderPreference
+import org.thoughtcrime.securesms.database.model.RemoteMegaphoneRecord
+import org.thoughtcrime.securesms.jobs.StoryOnboardingDownloadJob
+import org.thoughtcrime.securesms.keyvalue.InternalValues
+import org.thoughtcrime.securesms.keyvalue.SignalStore
+import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.stories.Stories
+import org.thoughtcrime.securesms.util.RemoteConfig
+import org.thoughtcrime.securesms.util.adapter.mapping.MappingModel
+import org.thoughtcrime.securesms.util.adapter.mapping.MappingModelList
+import org.thoughtcrime.securesms.util.livedata.Store
+import java.util.Locale
+
+class InternalSettingsViewModel(private val repository: InternalSettingsRepository) : ViewModel() {
+  private val preferenceDataStore = SignalStore.getPreferenceDataStore()
+
+  private val store = Store(getState())
+
+  init {
+    repository.getEmojiVersionInfo { version ->
+      store.update { it.copy(emojiVersion = version) }
+    }
+
+    val pendingOneTimeDonation: Observable<Boolean> = SignalStore.inAppPayments.observablePendingOneTimeDonation
+      .distinctUntilChanged()
+      .map { it.isPresent }
+
+    store.update(pendingOneTimeDonation) { pending, state ->
+      state.copy(hasPendingOneTimeDonation = pending)
+    }
+  }
+
+  val state: LiveData<InternalSettingsState> = store.stateLiveData
+
+  fun setSeeMoreUserDetails(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.RECIPIENT_DETAILS, enabled)
+    refresh()
+  }
+
+  fun setShowMediaArchiveStateHint(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.SHOW_ARCHIVE_STATE_HINT, enabled)
+    refresh()
+  }
+
+  fun setDisableStorageService(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.DISABLE_STORAGE_SERVICE, enabled)
+    refresh()
+  }
+
+  fun setGv2ForceInvites(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.GV2_FORCE_INVITES, enabled)
+    refresh()
+  }
+
+  fun setGv2IgnoreP2PChanges(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.GV2_IGNORE_P2P_CHANGES, enabled)
+    refresh()
+  }
+
+  fun setAllowCensorshipSetting(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.ALLOW_CENSORSHIP_SETTING, enabled)
+    refresh()
+  }
+
+  fun setUseBuiltInEmoji(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.FORCE_BUILT_IN_EMOJI, enabled)
+    refresh()
+  }
+
+  fun setRemoveSenderKeyMinimum(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.REMOVE_SENDER_KEY_MINIMUM, enabled)
+    refresh()
+  }
+
+  fun setDelayResends(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.DELAY_RESENDS, enabled)
+    refresh()
+  }
+
+  fun setInternalGroupCallingServer(server: String?) {
+    preferenceDataStore.putString(InternalValues.CALLING_SERVER, server)
+    refresh()
+  }
+
+  fun setInternalCallingDataMode(dataMode: CallManager.DataMode) {
+    preferenceDataStore.putInt(InternalValues.CALLING_DATA_MODE, dataMode.ordinal)
+    refresh()
+  }
+
+  fun setInternalCallingDisableTelecom(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.CALLING_DISABLE_TELECOM, enabled)
+    refresh()
+  }
+
+  fun setInternalCallingSetAudioConfig(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.CALLING_SET_AUDIO_CONFIG, enabled)
+    refresh()
+  }
+
+  fun setInternalCallingUseOboeAdm(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.CALLING_USE_OBOE_ADM, enabled)
+    refresh()
+  }
+
+  fun setInternalCallingUseSoftwareAec(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.CALLING_USE_SOFTWARE_AEC, enabled)
+    refresh()
+  }
+
+  fun setInternalCallingUseSoftwareNs(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.CALLING_USE_SOFTWARE_NS, enabled)
+    refresh()
+  }
+
+  fun setInternalCallingUseInputLowLatency(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.CALLING_USE_INPUT_LOW_LATENCY, enabled)
+    refresh()
+  }
+
+  fun setInternalCallingUseInputVoiceComm(enabled: Boolean) {
+    preferenceDataStore.putBoolean(InternalValues.CALLING_USE_INPUT_VOICE_COMM, enabled)
+    refresh()
+  }
+
+  fun setUseConversationItemV2Media(enabled: Boolean) {
+    SignalStore.internal.useConversationItemV2Media = enabled
+    refresh()
+  }
+
+  fun setUseNewMediaActivity(enabled: Boolean) {
+    SignalStore.internal.useNewMediaActivity = enabled
+    refresh()
+  }
+
+  fun setHevcEncoding(enabled: Boolean) {
+    SignalStore.internal.hevcEncoding = enabled
+    refresh()
+  }
+
+  fun addSampleReleaseNote(callToAction: String = "action") {
+    repository.addSampleReleaseNote(callToAction)
+  }
+
+  fun addRemoteDonateMegaphone() {
+    repository.addRemoteMegaphone(RemoteMegaphoneRecord.ActionId.DONATE)
+  }
+
+  fun enqueueSubscriptionRedemption() {
+    repository.enqueueSubscriptionRedemption()
+  }
+
+  fun refresh() {
+    store.update { getState().copy(emojiVersion = it.emojiVersion, searchQuery = it.searchQuery) }
+  }
+
+  fun setSearchQuery(query: String) {
+    store.update {
+      if (it.searchQuery == query) {
+        it
+      } else {
+        it.copy(searchQuery = query)
+      }
+    }
+  }
+
+  fun filterPreferences(context: Context, items: MappingModelList, query: String): MappingModelList {
+    val normalizedQuery = query.trim().lowercase(Locale.getDefault())
+    if (normalizedQuery.isBlank()) {
+      return items
+    }
+
+    val groups = buildSearchGroups(items)
+    val filtered = MappingModelList()
+
+    groups.forEach { group ->
+      val headerMatches = group.header?.searchableText(context)?.contains(normalizedQuery) == true
+      val matchingItems = if (headerMatches) {
+        group.items
+      } else {
+        group.items.filter { it.searchableText(context)?.contains(normalizedQuery) == true }
+      }
+
+      if (headerMatches || matchingItems.isNotEmpty()) {
+        if (filtered.isNotEmpty() && group.divider != null) {
+          filtered.add(group.divider)
+        }
+
+        group.header?.let { filtered.add(it) }
+        filtered.addAll(matchingItems)
+      }
+    }
+
+    return filtered
+  }
+
+  private fun getState() = InternalSettingsState(
+    seeMoreUserDetails = SignalStore.internal.recipientDetails,
+    showArchiveStateHint = SignalStore.internal.showArchiveStateHint,
+    gv2forceInvites = SignalStore.internal.gv2ForceInvites,
+    gv2ignoreP2PChanges = SignalStore.internal.gv2IgnoreP2PChanges,
+    allowCensorshipSetting = SignalStore.internal.allowChangingCensorshipSetting,
+    callingServer = SignalStore.internal.groupCallingServer,
+    callingDataMode = SignalStore.internal.callingDataMode,
+    callingDisableTelecom = SignalStore.internal.callingDisableTelecom,
+    callingSetAudioConfig = SignalStore.internal.callingSetAudioConfig,
+    callingUseOboeAdm = SignalStore.internal.callingUseOboeAdm,
+    callingUseSoftwareAec = SignalStore.internal.callingUseSoftwareAec,
+    callingUseSoftwareNs = SignalStore.internal.callingUseSoftwareNs,
+    callingUseInputLowLatency = SignalStore.internal.callingUseInputLowLatency,
+    callingUseInputVoiceComm = SignalStore.internal.callingUseInputVoiceComm,
+    useBuiltInEmojiSet = SignalStore.internal.forceBuiltInEmoji,
+    emojiVersion = null,
+    removeSenderKeyMinimium = SignalStore.internal.removeSenderKeyMinimum,
+    delayResends = SignalStore.internal.delayResends,
+    disableStorageService = SignalStore.internal.storageServiceDisabled,
+    canClearOnboardingState = SignalStore.story.hasDownloadedOnboardingStory && Stories.isFeatureEnabled(),
+    useConversationItemV2ForMedia = SignalStore.internal.useConversationItemV2Media,
+    hasPendingOneTimeDonation = SignalStore.inAppPayments.getPendingOneTimeDonation() != null,
+    hevcEncoding = SignalStore.internal.hevcEncoding,
+    forceSplitPane = SignalStore.internal.forceSplitPane,
+    forceSinglePane = SignalStore.internal.forceSinglePane,
+    useNewMediaActivity = SignalStore.internal.useNewMediaActivity,
+    disableInternalUser = RemoteConfig.internalUserDisabled
+  )
+
+  fun onClearOnboardingState() {
+    SignalStore.story.hasDownloadedOnboardingStory = false
+    SignalStore.story.userHasViewedOnboardingStory = false
+    Stories.onStorySettingsChanged(Recipient.self().id)
+    refresh()
+    StoryOnboardingDownloadJob.enqueueIfNeeded()
+  }
+
+  fun setDisableInternalUser(disabled: Boolean) {
+    RemoteConfig.internalUserDisabled = disabled
+    refresh()
+  }
+
+  fun setForceSplitPane(forceSplitPane: Boolean) {
+    SignalStore.internal.forceSplitPane = forceSplitPane
+    refresh()
+  }
+
+  fun setForceSinglePane(forceSinglePane: Boolean) {
+    SignalStore.internal.forceSinglePane = forceSinglePane
+    refresh()
+  }
+
+  private fun buildSearchGroups(items: MappingModelList): List<SearchGroup> {
+    val groups = mutableListOf<SearchGroup>()
+    var divider: DividerPreference? = null
+    var header: SectionHeaderPreference? = null
+    var groupItems = mutableListOf<MappingModel<*>>()
+
+    fun flush() {
+      if (header != null || groupItems.isNotEmpty()) {
+        groups.add(SearchGroup(divider, header, groupItems))
+      }
+
+      divider = null
+      header = null
+      groupItems = mutableListOf()
+    }
+
+    items.forEach { item ->
+      when (item) {
+        is DividerPreference -> {
+          flush()
+          divider = item
+        }
+        is SectionHeaderPreference -> {
+          flush()
+          header = item
+        }
+        else -> groupItems.add(item)
+      }
+    }
+
+    flush()
+
+    return groups
+  }
+
+  private fun MappingModel<*>.searchableText(context: Context): String? {
+    return if (this is PreferenceModel<*>) {
+      listOfNotNull(title, summary)
+        .joinToString(separator = " ") { it.resolve(context).toString() }
+        .lowercase(Locale.getDefault())
+    } else {
+      null
+    }
+  }
+
+  private data class SearchGroup(
+    val divider: DividerPreference?,
+    val header: SectionHeaderPreference?,
+    val items: List<MappingModel<*>>
+  )
+
+  class Factory(private val repository: InternalSettingsRepository) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+      return requireNotNull(modelClass.cast(InternalSettingsViewModel(repository)))
+    }
+  }
+}

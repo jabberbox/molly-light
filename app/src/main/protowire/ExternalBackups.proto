@@ -1,0 +1,16 @@
+/**
+ * Copyright (C) 2023 Open Whisper Systems
+ *
+ * Licensed according to the LICENSE file in this repository.
+ */
+
+syntax = "proto3";
+
+package signal;
+
+option java_package = "org.thoughtcrime.securesms.absbackup.protos";
+
+message SvrAuthToken {
+  repeated string svr2Tokens = 1;
+  repeated string svr3Tokens = 2;
+}

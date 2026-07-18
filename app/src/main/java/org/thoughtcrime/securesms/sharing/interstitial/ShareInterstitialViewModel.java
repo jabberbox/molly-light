@@ -1,0 +1,89 @@
+package org.thoughtcrime.securesms.sharing.interstitial;
+
+import android.text.TextUtils;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.util.Consumer;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.Transformations;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
+
+import org.thoughtcrime.securesms.linkpreview.LinkPreview;
+import org.thoughtcrime.securesms.sharing.MultiShareArgs;
+import org.thoughtcrime.securesms.sharing.MultiShareSender;
+import org.thoughtcrime.securesms.util.DefaultValueLiveData;
+import org.signal.core.util.Util;
+import org.thoughtcrime.securesms.util.adapter.mapping.MappingModelList;
+
+import java.util.stream.Stream;
+
+class ShareInterstitialViewModel extends ViewModel {
+
+private final MultiShareArgs                      args;
+  private final MutableLiveData<MappingModelList> recipients;
+  private final MutableLiveData<String>           draftText;
+
+  private LinkPreview linkPreview;
+
+  ShareInterstitialViewModel(@NonNull MultiShareArgs args, @NonNull ShareInterstitialRepository repository) {
+    this.args        = args;
+    this.recipients  = new MutableLiveData<>();
+    this.draftText   = new DefaultValueLiveData<>(Util.firstNonNull(args.getDraftText(), ""));
+
+    repository.loadRecipients(args.getRecipientSearchKeys(),
+                              list -> recipients.postValue(
+                                  Stream.concat(
+                                            list.stream().limit(1)
+                                                .map(r -> new ShareInterstitialMappingModel(r, true)),
+                                            list.stream().skip(1)
+                                                .map(r -> new ShareInterstitialMappingModel(r, false)))
+                                        .collect(MappingModelList.toMappingModelList())));
+
+  }
+
+  LiveData<MappingModelList> getRecipients() {
+    return recipients;
+  }
+
+  LiveData<Boolean> hasDraftText() {
+    return Transformations.map(draftText, text -> !TextUtils.isEmpty(text));
+  }
+
+  void onDraftTextChanged(@NonNull String change) {
+    draftText.setValue(change);
+  }
+
+  void onLinkPreviewChanged(@Nullable LinkPreview linkPreview) {
+    this.linkPreview = linkPreview;
+  }
+
+  void send(@NonNull Consumer<MultiShareSender.MultiShareSendResultCollection> resultsConsumer) {
+    LinkPreview linkPreview = this.linkPreview;
+    String      draftText   = this.draftText.getValue();
+
+    MultiShareArgs.Builder builder = args.buildUpon()
+                                         .withDraftText(draftText)
+                                         .withLinkPreview(linkPreview);
+
+    MultiShareSender.send(builder.build(), resultsConsumer);
+  }
+
+  static class Factory implements ViewModelProvider.Factory {
+
+    private final MultiShareArgs args;
+    private final ShareInterstitialRepository repository;
+
+    Factory(@NonNull MultiShareArgs args, @NonNull ShareInterstitialRepository repository) {
+      this.args       = args;
+      this.repository = repository;
+    }
+
+    @Override
+    public @NonNull <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
+      return modelClass.cast(new ShareInterstitialViewModel(args, repository));
+    }
+  }
+}

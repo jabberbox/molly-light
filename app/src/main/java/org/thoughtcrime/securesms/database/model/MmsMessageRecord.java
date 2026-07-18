@@ -1,0 +1,443 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+package org.thoughtcrime.securesms.database.model;
+
+import android.content.Context;
+import android.text.SpannableString;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.WorkerThread;
+import androidx.core.content.ContextCompat;
+
+import org.signal.core.util.logging.Log;
+import org.thoughtcrime.securesms.R;
+import org.thoughtcrime.securesms.attachments.Attachment;
+import org.signal.core.models.database.AttachmentId;
+import org.thoughtcrime.securesms.attachments.DatabaseAttachment;
+import org.thoughtcrime.securesms.contactshare.Contact;
+import org.thoughtcrime.securesms.database.CallTable;
+import org.thoughtcrime.securesms.database.CollapsedState;
+import org.thoughtcrime.securesms.database.MessageTable;
+import org.thoughtcrime.securesms.database.MessageTable.Status;
+import org.thoughtcrime.securesms.database.MessageTypes;
+import org.thoughtcrime.securesms.database.documents.IdentityKeyMismatch;
+import org.thoughtcrime.securesms.database.documents.NetworkFailure;
+import org.thoughtcrime.securesms.database.model.databaseprotos.BodyRangeList;
+import org.thoughtcrime.securesms.database.model.databaseprotos.GiftBadge;
+import org.thoughtcrime.securesms.database.model.databaseprotos.MessageExtras;
+import org.thoughtcrime.securesms.fonts.SignalSymbols.Glyph;
+import org.thoughtcrime.securesms.linkpreview.LinkPreview;
+import org.thoughtcrime.securesms.mms.Slide;
+import org.thoughtcrime.securesms.mms.SlideDeck;
+import org.thoughtcrime.securesms.payments.Payment;
+import org.thoughtcrime.securesms.polls.PollRecord;
+import org.thoughtcrime.securesms.recipients.Recipient;
+import org.thoughtcrime.securesms.recipients.RecipientId;
+
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+/**
+ * Represents the message record model for MMS messages that contain
+ * media (ie: they've been downloaded).
+ *
+ * @author Moxie Marlinspike
+ *
+ */
+
+public class MmsMessageRecord extends MessageRecord {
+  private final static String TAG = Log.tag(MmsMessageRecord.class);
+
+  private final SlideDeck         slideDeck;
+  private final Quote             quote;
+  private final List<Contact>     contacts     = new LinkedList<>();
+  private final List<LinkPreview> linkPreviews = new LinkedList<>();
+  private final StoryType         storyType;
+  private final ParentStoryId     parentStoryId;
+  private final GiftBadge         giftBadge;
+  private final boolean           viewOnce;
+  
+  private final boolean        mentionsSelf;
+  private final BodyRangeList  messageRanges;
+  private final Payment        payment;
+  private final CallTable.Call call;
+  private final PollRecord     poll;
+  private final long           scheduledDate;
+  private final MessageId      latestRevisionId;
+  private final boolean        isRead;
+
+  public MmsMessageRecord(long id,
+                          Recipient fromRecipient,
+                          int fromDeviceId,
+                          Recipient toRecipient,
+                          long dateSent,
+                          long dateReceived,
+                          long dateServer,
+                          boolean hasDeliveryReceipt,
+                          long threadId,
+                          String body,
+                          @NonNull SlideDeck slideDeck,
+                          long mailbox,
+                          Set<IdentityKeyMismatch> mismatches,
+                          Set<NetworkFailure> failures,
+                          int subscriptionId,
+                          long expiresIn,
+                          long expireStarted,
+                          int expireTimerVersion,
+                          boolean viewOnce,
+                          boolean hasReadReceipt,
+                          @Nullable Quote quote,
+                          @NonNull List<Contact> contacts,
+                          @NonNull List<LinkPreview> linkPreviews,
+                          boolean unidentified,
+                          @NonNull List<ReactionRecord> reactions,
+                          boolean mentionsSelf,
+                          long notifiedTimestamp,
+                          boolean viewed,
+                          long receiptTimestamp,
+                          @Nullable BodyRangeList messageRanges,
+                          @NonNull StoryType storyType,
+                          @Nullable ParentStoryId parentStoryId,
+                          @Nullable GiftBadge giftBadge,
+                          @Nullable Payment payment,
+                          @Nullable CallTable.Call call,
+                          @Nullable PollRecord poll,
+                          long scheduledDate,
+                          @Nullable MessageId latestRevisionId,
+                          @Nullable MessageId originalMessageId,
+                          int revisionNumber,
+                          boolean isRead,
+                          long pinnedUntil,
+                          @Nullable RecipientId deletedBy,
+                          @NonNull CollapsedState collapsedState,
+                          long collapsedHeadId,
+                          @Nullable MessageExtras messageExtras,
+                          boolean starred)
+  {
+    super(id, body, fromRecipient, fromDeviceId, toRecipient,
+          dateSent, dateReceived, dateServer, threadId, Status.STATUS_NONE, hasDeliveryReceipt,
+          mailbox, mismatches, failures, subscriptionId, expiresIn, expireStarted, expireTimerVersion, hasReadReceipt,
+          unidentified, reactions, notifiedTimestamp, viewed, receiptTimestamp, originalMessageId, revisionNumber, pinnedUntil, deletedBy, collapsedState, collapsedHeadId, messageExtras, starred);
+
+    this.slideDeck        = slideDeck;
+    this.quote            = quote;
+    this.viewOnce         = viewOnce;
+    this.storyType        = storyType;
+    this.parentStoryId    = parentStoryId;
+    this.giftBadge        = giftBadge;
+    this.mentionsSelf     = mentionsSelf;
+    this.messageRanges    = messageRanges;
+    this.payment          = payment;
+    this.call             = call;
+    this.poll             = poll;
+    this.scheduledDate    = scheduledDate;
+    this.latestRevisionId = latestRevisionId;
+    this.isRead           = isRead;
+
+    this.contacts.addAll(contacts);
+    this.linkPreviews.addAll(linkPreviews);
+  }
+  
+  @Override
+  public boolean isMms() {
+    return true;
+  }
+
+  @NonNull
+  public SlideDeck getSlideDeck() {
+    return slideDeck;
+  }
+
+  @Override
+  public boolean isMediaPending() {
+    for (Slide slide : getSlideDeck().getSlides()) {
+      if (slide.isInProgress() || slide.isPendingDownload()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  @Override
+  public boolean isViewOnce() {
+    return viewOnce;
+  }
+
+  public @NonNull StoryType getStoryType() {
+    return storyType;
+  }
+
+  public @Nullable ParentStoryId getParentStoryId() {
+    return parentStoryId;
+  }
+
+  public boolean containsMediaSlide() {
+    return slideDeck.containsMediaSlide();
+  }
+
+  public @Nullable Quote getQuote() {
+    return quote;
+  }
+
+  public @NonNull List<Contact> getSharedContacts() {
+    return contacts;
+  }
+
+  public @NonNull List<LinkPreview> getLinkPreviews() {
+    return linkPreviews;
+  }
+
+  public @Nullable GiftBadge getGiftBadge() {
+    return giftBadge;
+  }
+
+  public @Nullable PollRecord getPoll() {
+    return poll;
+  }
+
+  @Override
+  public boolean hasSelfMention() {
+    return mentionsSelf;
+  }
+
+  @Override
+  public boolean isMmsNotification() {
+    return false;
+  }
+
+  public boolean isRead() {
+    return isRead;
+  }
+
+  @Override
+  @WorkerThread
+  public SpannableString getDisplayBody(@NonNull Context context) {
+    if (MessageTypes.isChatSessionRefresh(type)) {
+      return emphasisAdded(context.getString(R.string.MessageRecord_chat_session_refreshed));
+    } else if (isPaymentNotification() && payment != null) {
+      return new SpannableString(context.getString(R.string.MessageRecord__payment_tombstone));
+    } else if (isPaymentTombstone() || isPaymentNotification()) {
+      return new SpannableString(context.getString(R.string.MessageRecord__payment_tombstone));
+    }
+
+    return super.getDisplayBody(context);
+  }
+
+  @Override
+  public @Nullable UpdateDescription getUpdateDisplayBody(@NonNull Context context, @Nullable Consumer<RecipientId> recipientClickHandler) {
+    if (isCallLog() && call != null && !(call.getType() == CallTable.Type.GROUP_CALL)) {
+      boolean accepted       = call.getEvent() == CallTable.Event.ACCEPTED;
+      String  callDateString = getCallDateString(context);
+
+      if (call.getDirection() == CallTable.Direction.OUTGOING) {
+        boolean isVideoCall = call.getType() == CallTable.Type.VIDEO_CALL;
+        Glyph   icon        = isVideoCall ? Glyph.VIDEO_CAMERA : Glyph.PHONE;
+
+        if (call.getEvent() == CallTable.Event.NOT_ACCEPTED) {
+          int message = isVideoCall ? R.string.MessageRecord_unanswered_video_call : R.string.MessageRecord_unanswered_voice_call;
+          return staticUpdateDescriptionWithExpiration(context.getString(R.string.MessageRecord_call_message_with_date, context.getString(message), callDateString),
+                                         icon,
+                                         ContextCompat.getColor(context, R.color.core_red_shade),
+                                         ContextCompat.getColor(context, R.color.core_red));
+        } else {
+          int updateString = isVideoCall ? R.string.MessageRecord_outgoing_video_call : R.string.MessageRecord_outgoing_voice_call;
+          return staticUpdateDescriptionWithExpiration(context.getString(R.string.MessageRecord_call_message_with_date, context.getString(updateString), callDateString), icon);
+        }
+      } else {
+        boolean isVideoCall = call.getType() == CallTable.Type.VIDEO_CALL;
+
+        if (accepted || !call.isDisplayedAsMissedCallInUi()) {
+          int updateString = isVideoCall ? R.string.MessageRecord_incoming_video_call : R.string.MessageRecord_incoming_voice_call;
+          Glyph icon       = isVideoCall ? Glyph.VIDEO_CAMERA : Glyph.PHONE;
+          return staticUpdateDescriptionWithExpiration(context.getString(R.string.MessageRecord_call_message_with_date, context.getString(updateString), callDateString), icon);
+        } else {
+          Glyph icon = isVideoCall ? Glyph.VIDEO_CAMERA : Glyph.PHONE;
+          int message;
+          if (call.getEvent() == CallTable.Event.MISSED_NOTIFICATION_PROFILE) {
+            message = isVideoCall ? R.string.MessageRecord_missed_video_call_notification_profile : R.string.MessageRecord_missed_voice_call_notification_profile;
+          } else if (call.getEvent() == CallTable.Event.NOT_ACCEPTED) {
+            message = isVideoCall ? R.string.MessageRecord_declined_video_call : R.string.MessageRecord_declined_voice_call;
+          } else {
+            message = isVideoCall ? R.string.MessageRecord_missed_video_call : R.string.MessageRecord_missed_voice_call;
+          }
+
+          return staticUpdateDescriptionWithExpiration(context.getString(R.string.MessageRecord_call_message_with_date,
+                                                           context.getString(message),
+                                                           callDateString),
+                                         icon,
+                                         ContextCompat.getColor(context, R.color.core_red_shade),
+                                         ContextCompat.getColor(context, R.color.core_red));
+        }
+      }
+    }
+    return super.getUpdateDisplayBody(context, recipientClickHandler);
+  }
+
+  @Override
+  public @Nullable BodyRangeList getMessageRanges() {
+    return messageRanges;
+  }
+
+  @Override
+  public @NonNull BodyRangeList requireMessageRanges() {
+    return Objects.requireNonNull(messageRanges);
+  }
+
+  public @Nullable Payment getPayment() {
+    return payment;
+  }
+
+  public @Nullable CallTable.Call getCall() {
+    return call;
+  }
+
+  public long getScheduledDate() {
+    return scheduledDate;
+  }
+
+  public @Nullable MessageId getLatestRevisionId() {
+    return latestRevisionId;
+  }
+
+  @Override
+  public boolean canDeleteSync() {
+    return (isSent() || MessageTypes.isInboxType(type)) &&
+           (isSecure() || isPush()) &&
+           (type & MessageTypes.GROUP_MASK) == 0 &&
+           (type & MessageTypes.KEY_EXCHANGE_MASK) == 0 &&
+           !isReportedSpam() &&
+           !isMessageRequestAccepted() &&
+           !isBlocked() &&
+           !isUnblocked() &&
+           storyType == StoryType.NONE &&
+           getDateSent() > 0 &&
+           (parentStoryId == null || parentStoryId.isDirectReply());
+  }
+
+  public @NonNull MmsMessageRecord withIncomingType() {
+    long incomingType = (getType() & ~MessageTypes.BASE_TYPE_MASK) | MessageTypes.BASE_INBOX_TYPE;
+    return new MmsMessageRecord(getId(), getFromRecipient(), getFromDeviceId(), getToRecipient(), getDateSent(), getDateReceived(), getServerTimestamp(), hasDeliveryReceipt(), getThreadId(), getBody(), getSlideDeck(),
+                                incomingType, getIdentityKeyMismatches(), getNetworkFailures(), getSubscriptionId(), getExpiresIn(), getExpireStarted(), getExpireTimerVersion(), isViewOnce(),
+                                hasReadReceipt(), getQuote(), getSharedContacts(), getLinkPreviews(), isUnidentified(), getReactions(), mentionsSelf,
+                                getNotifiedTimestamp(), isViewed(), getReceiptTimestamp(), getMessageRanges(), getStoryType(), getParentStoryId(), getGiftBadge(), getPayment(), getCall(), getPoll(), getScheduledDate(), getLatestRevisionId(),
+                                getOriginalMessageId(), getRevisionNumber(), isRead(), getPinnedUntil(), getDeletedBy(), getCollapsedState(), getCollapsedHeadId(), getMessageExtras(), isStarred());
+  }
+
+  public @NonNull MmsMessageRecord withReactions(@NonNull List<ReactionRecord> reactions) {
+    return new MmsMessageRecord(getId(), getFromRecipient(), getFromDeviceId(), getToRecipient(), getDateSent(), getDateReceived(), getServerTimestamp(), hasDeliveryReceipt(), getThreadId(), getBody(), getSlideDeck(),
+                                getType(), getIdentityKeyMismatches(), getNetworkFailures(), getSubscriptionId(), getExpiresIn(), getExpireStarted(), getExpireTimerVersion(), isViewOnce(),
+                                hasReadReceipt(), getQuote(), getSharedContacts(), getLinkPreviews(), isUnidentified(), reactions, mentionsSelf,
+                                getNotifiedTimestamp(), isViewed(), getReceiptTimestamp(), getMessageRanges(), getStoryType(), getParentStoryId(), getGiftBadge(), getPayment(), getCall(), getPoll(), getScheduledDate(), getLatestRevisionId(),
+                                getOriginalMessageId(), getRevisionNumber(), isRead(), getPinnedUntil(), getDeletedBy(), getCollapsedState(), getCollapsedHeadId(), getMessageExtras(), isStarred());
+  }
+
+  public @NonNull MmsMessageRecord withoutQuote() {
+    return new MmsMessageRecord(getId(), getFromRecipient(), getFromDeviceId(), getToRecipient(), getDateSent(), getDateReceived(), getServerTimestamp(), hasDeliveryReceipt(), getThreadId(), getBody(), getSlideDeck(),
+                                getType(), getIdentityKeyMismatches(), getNetworkFailures(), getSubscriptionId(), getExpiresIn(), getExpireStarted(), getExpireTimerVersion(), isViewOnce(),
+                                hasReadReceipt(), null, getSharedContacts(), getLinkPreviews(), isUnidentified(), getReactions(), mentionsSelf,
+                                getNotifiedTimestamp(), isViewed(), getReceiptTimestamp(), getMessageRanges(), getStoryType(), getParentStoryId(), getGiftBadge(), getPayment(), getCall(), getPoll(), getScheduledDate(), getLatestRevisionId(),
+                                getOriginalMessageId(), getRevisionNumber(), isRead(), getPinnedUntil(), getDeletedBy(), getCollapsedState(), getCollapsedHeadId(), getMessageExtras(), isStarred());
+  }
+
+  public @NonNull MmsMessageRecord withAttachments(@NonNull List<DatabaseAttachment> attachments) {
+    Map<AttachmentId, DatabaseAttachment> attachmentIdMap = new HashMap<>();
+    for (DatabaseAttachment attachment : attachments) {
+      attachmentIdMap.put(attachment.attachmentId, attachment);
+    }
+
+    List<Contact>     contacts               = updateContacts(getSharedContacts(), attachmentIdMap);
+    Set<Attachment>   contactAttachments     = contacts.stream().map(Contact::getAvatarAttachment).filter(Objects::nonNull).collect(Collectors.toSet());
+    List<LinkPreview> linkPreviews           = updateLinkPreviews(getLinkPreviews(), attachmentIdMap);
+    Set<Attachment>   linkPreviewAttachments = linkPreviews.stream().map(LinkPreview::getThumbnail).filter(Optional::isPresent).map(Optional::get).collect(Collectors.toSet());
+    Quote             quote                  = updateQuote(getQuote(), attachments);
+
+    List<DatabaseAttachment> slideAttachments = attachments.stream().filter(a -> !contactAttachments.contains(a)).filter(a -> !linkPreviewAttachments.contains(a)).collect(Collectors.toList());
+    SlideDeck                slideDeck        = MessageTable.MmsReader.buildSlideDeck(slideAttachments);
+
+    return new MmsMessageRecord(getId(), getFromRecipient(), getFromDeviceId(), getToRecipient(), getDateSent(), getDateReceived(), getServerTimestamp(), hasDeliveryReceipt(), getThreadId(), getBody(), slideDeck,
+                                getType(), getIdentityKeyMismatches(), getNetworkFailures(), getSubscriptionId(), getExpiresIn(), getExpireStarted(), getExpireTimerVersion(), isViewOnce(),
+                                hasReadReceipt(), quote, contacts, linkPreviews, isUnidentified(), getReactions(), mentionsSelf,
+                                getNotifiedTimestamp(), isViewed(), getReceiptTimestamp(), getMessageRanges(), getStoryType(), getParentStoryId(), getGiftBadge(), getPayment(), getCall(), getPoll(), getScheduledDate(), getLatestRevisionId(),
+                                getOriginalMessageId(), getRevisionNumber(), isRead(), getPinnedUntil(), getDeletedBy(), getCollapsedState(), getCollapsedHeadId(), getMessageExtras(), isStarred());
+  }
+
+  public @NonNull MmsMessageRecord withPayment(@NonNull Payment payment) {
+    return new MmsMessageRecord(getId(), getFromRecipient(), getFromDeviceId(), getToRecipient(), getDateSent(), getDateReceived(), getServerTimestamp(), hasDeliveryReceipt(), getThreadId(), getBody(), getSlideDeck(),
+                                getType(), getIdentityKeyMismatches(), getNetworkFailures(), getSubscriptionId(), getExpiresIn(), getExpireStarted(), getExpireTimerVersion(), isViewOnce(),
+                                hasReadReceipt(), getQuote(), getSharedContacts(), getLinkPreviews(), isUnidentified(), getReactions(), mentionsSelf,
+                                getNotifiedTimestamp(), isViewed(), getReceiptTimestamp(), getMessageRanges(), getStoryType(), getParentStoryId(), getGiftBadge(), payment, getCall(), getPoll(), getScheduledDate(), getLatestRevisionId(),
+                                getOriginalMessageId(), getRevisionNumber(), isRead(), getPinnedUntil(), getDeletedBy(), getCollapsedState(), getCollapsedHeadId(), getMessageExtras(), isStarred());
+  }
+
+
+  public @NonNull MmsMessageRecord withCall(@Nullable CallTable.Call call) {
+    return new MmsMessageRecord(getId(), getFromRecipient(), getFromDeviceId(), getToRecipient(), getDateSent(), getDateReceived(), getServerTimestamp(), hasDeliveryReceipt(), getThreadId(), getBody(), getSlideDeck(),
+                                getType(), getIdentityKeyMismatches(), getNetworkFailures(), getSubscriptionId(), getExpiresIn(), getExpireStarted(), getExpireTimerVersion(), isViewOnce(),
+                                hasReadReceipt(), getQuote(), getSharedContacts(), getLinkPreviews(), isUnidentified(), getReactions(), mentionsSelf,
+                                getNotifiedTimestamp(), isViewed(), getReceiptTimestamp(), getMessageRanges(), getStoryType(), getParentStoryId(), getGiftBadge(), getPayment(), call, getPoll(), getScheduledDate(), getLatestRevisionId(),
+                                getOriginalMessageId(), getRevisionNumber(), isRead(), getPinnedUntil(), getDeletedBy(), getCollapsedState(), getCollapsedHeadId(), getMessageExtras(), isStarred());
+  }
+
+  public @NonNull MmsMessageRecord withPoll(@Nullable PollRecord poll) {
+    return new MmsMessageRecord(getId(), getFromRecipient(), getFromDeviceId(), getToRecipient(), getDateSent(), getDateReceived(), getServerTimestamp(), hasDeliveryReceipt(), getThreadId(), getBody(), getSlideDeck(),
+                                getType(), getIdentityKeyMismatches(), getNetworkFailures(), getSubscriptionId(), getExpiresIn(), getExpireStarted(), getExpireTimerVersion(), isViewOnce(),
+                                hasReadReceipt(), getQuote(), getSharedContacts(), getLinkPreviews(), isUnidentified(), getReactions(), mentionsSelf,
+                                getNotifiedTimestamp(), isViewed(), getReceiptTimestamp(), getMessageRanges(), getStoryType(), getParentStoryId(), getGiftBadge(), getPayment(), getCall(), poll, getScheduledDate(), getLatestRevisionId(),
+                                getOriginalMessageId(), getRevisionNumber(), isRead(), getPinnedUntil(), getDeletedBy(), getCollapsedState(), getCollapsedHeadId(), getMessageExtras(), isStarred());
+  }
+
+  private static @NonNull List<Contact> updateContacts(@NonNull List<Contact> contacts, @NonNull Map<AttachmentId, DatabaseAttachment> attachmentIdMap) {
+    return contacts.stream()
+                   .map(contact -> {
+                     if (contact.getAvatar() != null) {
+                       DatabaseAttachment attachment    = attachmentIdMap.get(contact.getAvatar().getAttachmentId());
+                       Contact.Avatar     updatedAvatar = new Contact.Avatar(contact.getAvatar().getAttachmentId(),
+                                                                             attachment,
+                                                                             contact.getAvatar().isProfile());
+
+                       return new Contact(contact, updatedAvatar);
+                     } else {
+                       return contact;
+                     }
+                   })
+                   .collect(Collectors.toList());
+  }
+
+  private static @NonNull List<LinkPreview> updateLinkPreviews(@NonNull List<LinkPreview> linkPreviews, @NonNull Map<AttachmentId, DatabaseAttachment> attachmentIdMap) {
+    return linkPreviews.stream()
+                       .map(preview -> {
+                         if (preview.getAttachmentId() != null) {
+                           DatabaseAttachment attachment = attachmentIdMap.get(preview.getAttachmentId());
+                           if (attachment != null) {
+                             return new LinkPreview(preview.getUrl(), preview.getTitle(), preview.getDescription(), preview.getDate(), attachment);
+                           } else {
+                             return preview;
+                           }
+                         } else {
+                           return preview;
+                         }
+                       })
+                       .collect(Collectors.toList());
+  }
+
+  private static @Nullable Quote updateQuote(@Nullable Quote quote, @NonNull List<DatabaseAttachment> attachments) {
+    if (quote == null) {
+      return null;
+    }
+
+    List<DatabaseAttachment> quoteAttachments = attachments.stream().filter(a -> a.quote).collect(Collectors.toList());
+
+    return quote.withAttachment(new SlideDeck(quoteAttachments));
+  }
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.button.MaterialButton xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/button"
+    style="@style/Signal.Widget.Button.Large.Tonal"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="@dimen/dsl_settings_gutter"
+    android:layout_marginEnd="@dimen/dsl_settings_gutter"
+    android:insetTop="0dp"
+    android:insetBottom="0dp"
+    app:iconGravity="textStart"
+    app:iconSize="24dp"
+    app:iconTint="@null"
+    tools:icon="@drawable/bank_transfer"
+    tools:text="Tonal button"
+    tools:viewBindingIgnore="true" />

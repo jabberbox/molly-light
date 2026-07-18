@@ -1,0 +1,232 @@
+package org.thoughtcrime.securesms.mediasend;
+
+import android.content.Context;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.WorkerThread;
+
+import org.signal.core.models.media.Media;
+import org.signal.core.models.media.TransformProperties;
+import org.signal.core.util.ThreadUtil;
+import org.signal.core.util.concurrent.SignalExecutors;
+import org.signal.core.util.logging.Log;
+import org.thoughtcrime.securesms.attachments.Attachment;
+import org.signal.core.models.database.AttachmentId;
+import org.thoughtcrime.securesms.database.AttachmentTable;
+import org.thoughtcrime.securesms.database.SignalDatabase;
+import org.thoughtcrime.securesms.dependencies.AppDependencies;
+import org.thoughtcrime.securesms.jobmanager.JobManager;
+import org.thoughtcrime.securesms.mms.GifSlide;
+import org.thoughtcrime.securesms.mms.ImageSlide;
+import org.thoughtcrime.securesms.mms.TextSlide;
+import org.thoughtcrime.securesms.mms.VideoSlide;
+import org.thoughtcrime.securesms.recipients.Recipient;
+import org.thoughtcrime.securesms.sms.MessageSender;
+import org.thoughtcrime.securesms.sms.MessageSender.PreUploadResult;
+import org.thoughtcrime.securesms.util.MediaUtil;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executor;
+
+/**
+ * Manages the proactive upload of media during the selection process. Upload/cancel operations
+ * need to be serialized, because they're asynchronous operations that depend on ordered completion.
+ *
+ * For example, if we begin upload of a {@link Media) but then immediately cancel it (before it was
+ * enqueued on the {@link JobManager}), we need to wait until we have the jobId to cancel. This
+ * class manages everything by using a single thread executor.
+ *
+ * This also means that unlike most repositories, the class itself is stateful. Keep that in mind
+ * when using it.
+ */
+public class MediaUploadRepository {
+
+  private static final String TAG = Log.tag(MediaUploadRepository.class);
+
+  private final Context                               context;
+  private final LinkedHashMap<Media, PreUploadResult> uploadResults;
+  private final Executor                              executor;
+
+  public MediaUploadRepository(@NonNull Context context) {
+    this.context       = context;
+    this.uploadResults = new LinkedHashMap<>();
+    this.executor      = SignalExecutors.newCachedSingleThreadExecutor("signal-MediaUpload", ThreadUtil.PRIORITY_IMPORTANT_BACKGROUND_THREAD);
+  }
+
+  public void startUpload(@NonNull Media media, @Nullable Recipient recipient) {
+    executor.execute(() -> uploadMediaInternal(media, recipient));
+  }
+
+  public void startUpload(@NonNull Collection<Media> mediaItems, @Nullable Recipient recipient) {
+    executor.execute(() -> {
+      for (Media media : mediaItems) {
+        Log.d(TAG, "Canceling existing preuploads.");
+        cancelUploadInternal(media);
+        Log.d(TAG, "Re-uploading media with recipient.");
+        uploadMediaInternal(media, recipient);
+      }
+    });
+  }
+
+  /**
+   * Given a map of old->new, cancel medias that were changed and upload their replacements. Will
+   * also upload any media in the map that wasn't yet uploaded.
+   */
+  public void applyMediaUpdates(@NonNull Map<Media, Media> oldToNew, @Nullable Recipient recipient) {
+    executor.execute(() -> {
+      for (Map.Entry<Media, Media> entry : oldToNew.entrySet()) {
+        Media   oldMedia = entry.getKey();
+        Media   newMedia = entry.getValue();
+        boolean same     = oldMedia.equals(newMedia) && hasSameTransformProperties(oldMedia, newMedia);
+
+        if (!same || !uploadResults.containsKey(newMedia)) {
+          Log.d(TAG, "Canceling existing preuploads.");
+          cancelUploadInternal(oldMedia);
+          Log.d(TAG, "Applying media updates.");
+          uploadMediaInternal(newMedia, recipient);
+        }
+      }
+    });
+  }
+
+  private boolean hasSameTransformProperties(@NonNull Media oldMedia, @NonNull Media newMedia) {
+    TransformProperties oldProperties = oldMedia.getTransformProperties();
+    TransformProperties newProperties = newMedia.getTransformProperties();
+
+    if (oldProperties == null || newProperties == null) {
+      return oldProperties == newProperties;
+    }
+
+    return !newProperties.getVideoEdited() && oldProperties.sentMediaQuality == newProperties.sentMediaQuality;
+  }
+
+  public void cancelUpload(@NonNull Media media) {
+    Log.d(TAG, "User canceling media upload.");
+    executor.execute(() -> cancelUploadInternal(media));
+  }
+
+  public void cancelUpload(@NonNull Collection<Media> mediaItems) {
+    Log.d(TAG, "Canceling uploads.");
+    executor.execute(() -> {
+      for (Media media : mediaItems) {
+        cancelUploadInternal(media);
+      }
+    });
+  }
+
+  public void cancelAllUploads() {
+    Log.d(TAG, "Canceling all uploads.");
+    executor.execute(() -> {
+      for (Media media : new HashSet<>(uploadResults.keySet())) {
+        cancelUploadInternal(media);
+      }
+    });
+  }
+
+  public void getPreUploadResults(@NonNull Callback<Collection<PreUploadResult>> callback) {
+    executor.execute(() -> callback.onResult(uploadResults.values()));
+  }
+
+  public void updateCaptions(@NonNull List<Media> updatedMedia) {
+    executor.execute(() -> updateCaptionsInternal(updatedMedia));
+  }
+
+  public void updateDisplayOrder(@NonNull List<Media> mediaInOrder) {
+    executor.execute(() -> updateDisplayOrderInternal(mediaInOrder));
+  }
+
+  public void deleteAbandonedAttachments() {
+    executor.execute(() -> {
+      int deleted = SignalDatabase.attachments().deleteAbandonedPreuploadedAttachments();
+      Log.i(TAG, "Deleted " + deleted + " abandoned attachments.");
+    });
+  }
+
+  @WorkerThread
+  private void uploadMediaInternal(@NonNull Media media, @Nullable Recipient recipient) {
+    Attachment      attachment = asAttachment(context, media);
+    PreUploadResult result     = MessageSender.preUploadPushAttachment(context, attachment, recipient, media);
+
+    if (result != null) {
+      uploadResults.put(media, result);
+    } else {
+      Log.w(TAG, "Failed to upload media with URI: " + media.getUri());
+    }
+  }
+
+  private void cancelUploadInternal(@NonNull Media media) {
+    JobManager      jobManager = AppDependencies.getJobManager();
+    PreUploadResult result     = uploadResults.get(media);
+
+    if (result != null) {
+      Log.d(TAG, "Canceling attachment upload job for " + result.getAttachmentId());
+      result.getJobIds().stream().forEach(jobManager::cancel);
+      uploadResults.remove(media);
+      SignalDatabase.attachments().deleteAttachment(result.getAttachmentId());
+    }
+  }
+
+  @WorkerThread
+  private void updateCaptionsInternal(@NonNull List<Media> updatedMedia) {
+    AttachmentTable db = SignalDatabase.attachments();
+
+    for (Media updated : updatedMedia) {
+      PreUploadResult result = uploadResults.get(updated);
+
+      if (result != null) {
+        db.updateAttachmentCaption(result.getAttachmentId(), updated.getCaption());
+      } else {
+        Log.w(TAG, "When updating captions, no pre-upload result could be found for media with URI: " + updated.getUri());
+      }
+    }
+  }
+
+  @WorkerThread
+  private void updateDisplayOrderInternal(@NonNull List<Media> mediaInOrder) {
+    Map<AttachmentId, Integer>  orderMap             = new HashMap<>();
+    Map<Media, PreUploadResult> orderedUploadResults = new LinkedHashMap<>();
+
+    for (int i = 0; i < mediaInOrder.size(); i++) {
+      Media           media  = mediaInOrder.get(i);
+      PreUploadResult result = uploadResults.get(media);
+
+      if (result != null) {
+        orderMap.put(result.getAttachmentId(), i);
+        orderedUploadResults.put(media, result);
+      } else {
+        Log.w(TAG, "When updating display order, no pre-upload result could be found for media with URI: " + media.getUri());
+      }
+    }
+
+    SignalDatabase.attachments().updateDisplayOrder(orderMap);
+
+    if (orderedUploadResults.size() == uploadResults.size()) {
+      uploadResults.clear();
+      uploadResults.putAll(orderedUploadResults);
+    }
+  }
+
+  public static @NonNull Attachment asAttachment(@NonNull Context context, @NonNull Media media) {
+    if (MediaUtil.isVideoType(media.getContentType())) {
+      return new VideoSlide(context, media.getUri(), media.getSize(), media.isVideoGif(), media.getWidth(), media.getHeight(), media.getCaption(), media.getTransformProperties()).asAttachment();
+    } else if (MediaUtil.isGif(media.getContentType())) {
+      return new GifSlide(context, media.getUri(), media.getSize(), media.getWidth(), media.getHeight(), media.isBorderless(), media.getCaption()).asAttachment();
+    } else if (MediaUtil.isImageType(media.getContentType())) {
+      return new ImageSlide(context, media.getUri(), media.getContentType(), media.getSize(), media.getWidth(), media.getHeight(), media.isBorderless(), media.getCaption(), null, media.getTransformProperties()).asAttachment();
+    } else if (MediaUtil.isTextType(media.getContentType())) {
+      return new TextSlide(context, media.getUri(), null, media.getSize()).asAttachment();
+    } else {
+      throw new AssertionError("Unexpected mimeType: " + media.getContentType());
+    }
+  }
+
+  public interface Callback<E> {
+    void onResult(@NonNull E result);
+  }
+}

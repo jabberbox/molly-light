@@ -1,0 +1,733 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+package org.thoughtcrime.securesms.recipients.ui.about
+
+import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.os.bundleOf
+import androidx.core.widget.TextViewCompat
+import androidx.fragment.app.setFragmentResult
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.signal.core.ui.compose.BottomSheets
+import org.signal.core.ui.compose.ComposeBottomSheetDialogFragment
+import org.signal.core.ui.compose.DayNightPreviews
+import org.signal.core.ui.compose.Previews
+import org.signal.core.ui.compose.SignalIcons
+import org.signal.core.util.getParcelableCompat
+import org.signal.core.util.isNotNullOrBlank
+import org.thoughtcrime.securesms.AvatarPreviewActivity
+import org.thoughtcrime.securesms.R
+import org.thoughtcrime.securesms.avatar.AvatarImage
+import org.thoughtcrime.securesms.components.emoji.EmojiTextView
+import org.thoughtcrime.securesms.components.emoji.Emojifier
+import org.thoughtcrime.securesms.conversation.v2.UnverifiedProfileNameBottomSheet
+import org.thoughtcrime.securesms.groups.GroupId
+import org.thoughtcrime.securesms.groups.memberlabel.MemberLabel
+import org.thoughtcrime.securesms.groups.ui.incommon.GroupsInCommonActivity
+import org.thoughtcrime.securesms.nicknames.ViewNoteSheet
+import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.recipients.RecipientId
+import org.thoughtcrime.securesms.stories.settings.my.SignalConnectionsBottomSheetDialogFragment
+import org.thoughtcrime.securesms.util.SignalE164Util
+import org.thoughtcrime.securesms.util.viewModel
+import org.signal.core.ui.R as CoreUiR
+
+/**
+ * Displays all relevant context you know for a given user on the sheet.
+ */
+class AboutSheet : ComposeBottomSheetDialogFragment() {
+
+  companion object {
+    const val RESULT_EDIT_MEMBER_LABEL = "edit_member_label"
+    const val RESULT_GROUP_ID = "group_id"
+
+    private const val RECIPIENT_ID = "recipient_id"
+    private const val VIEWING_FROM_GROUP_ID = "viewing_from_group_id"
+
+    @JvmStatic
+    fun create(recipient: Recipient, viewingFromGroupId: GroupId.V2? = null): AboutSheet {
+      return AboutSheet().apply {
+        arguments = bundleOf(
+          RECIPIENT_ID to recipient.id,
+          VIEWING_FROM_GROUP_ID to viewingFromGroupId
+        )
+      }
+    }
+  }
+
+  override val peekHeightPercentage: Float = 1f
+
+  private val recipientId: RecipientId by lazy { requireArguments().getParcelableCompat(RECIPIENT_ID, RecipientId::class.java)!! }
+  private val viewingFromGroupId: GroupId.V2? by lazy { requireArguments().getParcelableCompat(VIEWING_FROM_GROUP_ID, GroupId.V2::class.java) }
+
+  private val viewModel by viewModel {
+    AboutSheetViewModel(recipientId, viewingFromGroupId)
+  }
+
+  @Composable
+  override fun SheetContent() {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val recipient = state.recipient ?: return
+
+    Content(
+      model = AboutModel(
+        isSelf = recipient.isSelf,
+        displayName = recipient.getDisplayName(requireContext()),
+        shortName = recipient.getShortDisplayName(requireContext()),
+        profileName = recipient.profileName.toString(),
+        about = recipient.about,
+        verified = state.verified,
+        hasAvatar = recipient.profileAvatarFileDetails.hasFile(),
+        recipientForAvatar = recipient,
+        formattedE164 = if (recipient.hasE164 && recipient.shouldShowE164) {
+          SignalE164Util.prettyPrint(recipient.requireE164())
+        } else {
+          null
+        },
+        profileSharing = recipient.isProfileSharing,
+        systemContact = recipient.isSystemContact,
+        groupsInCommon = state.groupsInCommonCount,
+        note = recipient.note ?: "",
+        memberLabel = state.memberLabel,
+        canEditMemberLabel = state.canEditMemberLabel
+      ),
+      onClickSignalConnections = this::openSignalConnectionsSheet,
+      onAvatarClicked = this::openProfilePhotoViewer,
+      onNoteClicked = this::openNoteSheet,
+      onUnverifiedProfileClicked = this::openUnverifiedProfileSheet,
+      onGroupsInCommonClicked = this::openGroupsInCommon,
+      onMemberLabelClicked = this::openMemberLabelScreen
+    )
+  }
+
+  private fun openSignalConnectionsSheet() {
+    dismiss()
+    SignalConnectionsBottomSheetDialogFragment().show(parentFragmentManager, null)
+  }
+
+  private fun openProfilePhotoViewer() {
+    startActivity(AvatarPreviewActivity.intentFromRecipientId(requireContext(), recipientId))
+  }
+
+  private fun openNoteSheet() {
+    dismiss()
+    ViewNoteSheet.create(recipientId).show(parentFragmentManager, null)
+  }
+
+  private fun openUnverifiedProfileSheet() {
+    dismiss()
+    UnverifiedProfileNameBottomSheet.show(fragmentManager = parentFragmentManager, forGroup = false)
+  }
+
+  private fun openGroupsInCommon() {
+    dismiss()
+    startActivity(GroupsInCommonActivity.createIntent(requireContext(), recipientId))
+  }
+
+  private fun openMemberLabelScreen() {
+    viewingFromGroupId?.let { groupId ->
+      setFragmentResult(RESULT_EDIT_MEMBER_LABEL, bundleOf(RESULT_GROUP_ID to groupId))
+      dismiss()
+    }
+  }
+}
+
+private data class AboutModel(
+  val isSelf: Boolean,
+  val displayName: String,
+  val shortName: String,
+  val profileName: String,
+  val about: String?,
+  val verified: Boolean,
+  val hasAvatar: Boolean,
+  val recipientForAvatar: Recipient,
+  val formattedE164: String?,
+  val profileSharing: Boolean,
+  val systemContact: Boolean,
+  val groupsInCommon: Int,
+  val note: String,
+  val memberLabel: MemberLabel? = null,
+  val canEditMemberLabel: Boolean = false
+)
+
+@Composable
+private fun Content(
+  model: AboutModel,
+  onClickSignalConnections: () -> Unit,
+  onAvatarClicked: () -> Unit,
+  onNoteClicked: () -> Unit,
+  onUnverifiedProfileClicked: () -> Unit = {},
+  onGroupsInCommonClicked: () -> Unit = {},
+  onMemberLabelClicked: () -> Unit = {}
+) {
+  Box(
+    contentAlignment = Alignment.Center,
+    modifier = Modifier.fillMaxWidth()
+  ) {
+    BottomSheets.Handle(modifier = Modifier.padding(top = 6.dp))
+  }
+
+  val avatarOnClick = remember(model.hasAvatar) {
+    if (model.hasAvatar) {
+      onAvatarClicked
+    } else {
+      { }
+    }
+  }
+
+  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    AvatarImage(
+      recipient = model.recipientForAvatar,
+      modifier = Modifier
+        .padding(top = 56.dp)
+        .size(240.dp)
+        .clip(CircleShape)
+        .clickable(onClick = avatarOnClick)
+    )
+
+    Text(
+      text = stringResource(id = if (model.isSelf) R.string.AboutSheet__you else R.string.AboutSheet__about),
+      style = MaterialTheme.typography.headlineMedium,
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 32.dp)
+        .padding(top = 20.dp, bottom = 14.dp)
+    )
+
+    AboutRow(
+      startIcon = ImageVector.vectorResource(R.drawable.symbol_person_24),
+      text = if (!model.isSelf && model.displayName.isNotBlank() && model.profileName.isNotBlank() && model.displayName != model.profileName) {
+        stringResource(id = R.string.AboutSheet__user_set_display_name_and_profile_name, model.displayName, model.profileName)
+      } else {
+        model.displayName
+      },
+      modifier = Modifier.fillMaxWidth()
+    )
+
+    if (!model.isSelf && !model.profileSharing && !model.systemContact) {
+      AboutRow(
+        startIcon = ImageVector.vectorResource(id = R.drawable.symbol_person_question_24),
+        text = stringResource(id = R.string.AboutSheet__profile_names_are_not_verified),
+        endIcon = ImageVector.vectorResource(id = R.drawable.symbol_chevron_right_compact_bold_16),
+        modifier = Modifier.align(alignment = Alignment.Start),
+        onClick = onUnverifiedProfileClicked
+      )
+    }
+
+    if (model.isSelf && (model.memberLabel != null || model.canEditMemberLabel)) {
+      MemberLabelRow(
+        memberLabel = model.memberLabel,
+        canEdit = model.canEditMemberLabel,
+        onClick = onMemberLabelClicked,
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+
+    if (model.about.isNotNullOrBlank()) {
+      val textColor = LocalContentColor.current
+
+      AboutRow(
+        startIcon = SignalIcons.Edit.imageVector,
+        text = {
+          Row {
+            AndroidView(factory = ::EmojiTextView) {
+              it.text = model.about
+
+              TextViewCompat.setTextAppearance(it, CoreUiR.style.Signal_Text_BodyLarge)
+
+              it.setTextColor(textColor.toArgb())
+            }
+          }
+        },
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+
+    if (!model.isSelf && model.verified) {
+      AboutRow(
+        startIcon = ImageVector.vectorResource(id = R.drawable.symbol_safety_number_24),
+        text = stringResource(id = R.string.AboutSheet__verified),
+        modifier = Modifier.align(alignment = Alignment.Start),
+        onClick = onClickSignalConnections
+      )
+    }
+
+    if (!model.isSelf) {
+      if (model.profileSharing || model.systemContact) {
+        AboutRow(
+          startIcon = ImageVector.vectorResource(id = R.drawable.symbol_connections_24),
+          text = stringResource(id = R.string.AboutSheet__signal_connection),
+          endIcon = ImageVector.vectorResource(id = R.drawable.symbol_chevron_right_compact_bold_16),
+          modifier = Modifier.align(alignment = Alignment.Start),
+          onClick = onClickSignalConnections
+        )
+      } else if (model.groupsInCommon == 0) {
+        AboutRow(
+          startIcon = ImageVector.vectorResource(id = R.drawable.symbol_chat_badge_24),
+          text = stringResource(id = R.string.AboutSheet__pending_message_request),
+          modifier = Modifier.align(alignment = Alignment.Start)
+        )
+      } else {
+        AboutRow(
+          startIcon = ImageVector.vectorResource(id = R.drawable.symbol_chat_x),
+          text = stringResource(id = R.string.AboutSheet__no_direct_message, model.shortName),
+          modifier = Modifier.align(alignment = Alignment.Start)
+        )
+      }
+    }
+
+    if (!model.isSelf && model.systemContact) {
+      AboutRow(
+        startIcon = ImageVector.vectorResource(id = CoreUiR.drawable.symbol_person_circle_24),
+        text = stringResource(id = R.string.AboutSheet__s_is_in_your_system_contacts, model.shortName),
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+
+    if (model.formattedE164.isNotNullOrBlank()) {
+      AboutRow(
+        startIcon = SignalIcons.Phone.imageVector,
+        text = model.formattedE164,
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+
+    if (!model.isSelf) {
+      val groupsInCommonText = if (model.groupsInCommon > 0) {
+        pluralStringResource(id = R.plurals.AboutSheet__d_groups_in, model.groupsInCommon, model.groupsInCommon)
+      } else {
+        stringResource(id = R.string.AboutSheet__you_have_no_groups_in_common)
+      }
+
+      val groupsInCommonIcon = if (!model.profileSharing && model.groupsInCommon == 0) {
+        ImageVector.vectorResource(R.drawable.symbol_error_circle_24)
+      } else {
+        ImageVector.vectorResource(R.drawable.symbol_group_24)
+      }
+
+      AboutRow(
+        startIcon = groupsInCommonIcon,
+        text = groupsInCommonText,
+        endIcon = if (model.groupsInCommon > 0) ImageVector.vectorResource(id = R.drawable.symbol_chevron_right_compact_bold_16) else null,
+        onClick = if (model.groupsInCommon > 0) onGroupsInCommonClicked else null,
+        modifier = Modifier.fillMaxWidth()
+      )
+    }
+
+    if (model.note.isNotBlank()) {
+      AboutRow(
+        startIcon = ImageVector.vectorResource(id = R.drawable.symbol_note_light_24),
+        text = model.note,
+        modifier = Modifier.fillMaxWidth(),
+        endIcon = ImageVector.vectorResource(id = R.drawable.symbol_chevron_right_compact_bold_16),
+        onClick = onNoteClicked
+      )
+    }
+
+    Spacer(modifier = Modifier.size(26.dp))
+  }
+}
+
+@Composable
+private fun MemberLabelRow(
+  memberLabel: MemberLabel?,
+  canEdit: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  AboutRow(
+    startIcon = ImageVector.vectorResource(R.drawable.symbol_tag_24),
+    text = {
+      if (memberLabel != null) {
+        if (!memberLabel.emoji.isNullOrEmpty()) {
+          Emojifier(text = memberLabel.emoji) { annotatedText, inlineContent ->
+            Text(
+              text = annotatedText,
+              inlineContent = inlineContent,
+              style = MaterialTheme.typography.bodyLarge
+            )
+          }
+          Spacer(modifier = Modifier.size(4.dp))
+        }
+
+        Emojifier(text = memberLabel.displayText) { annotatedText, inlineContent ->
+          Text(
+            text = annotatedText,
+            inlineContent = inlineContent,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, false)
+          )
+        }
+      } else {
+        Text(
+          text = stringResource(id = R.string.AboutSheet__add_group_member_label),
+          style = MaterialTheme.typography.bodyLarge,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.weight(1f, false)
+        )
+      }
+    },
+    endIcon = if (canEdit) ImageVector.vectorResource(id = R.drawable.symbol_chevron_right_compact_bold_16) else null,
+    onClick = if (canEdit) onClick else null,
+    modifier = modifier
+  )
+}
+
+@Composable
+private fun AboutRow(
+  startIcon: ImageVector,
+  text: String,
+  modifier: Modifier = Modifier,
+  endIcon: ImageVector? = null,
+  onClick: (() -> Unit)? = null
+) {
+  AboutRow(
+    startIcon = startIcon,
+    text = {
+      Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f, false)
+      )
+    },
+    modifier = modifier,
+    endIcon = endIcon,
+    onClick = onClick
+  )
+}
+
+@Composable
+private fun AboutRow(
+  startIcon: ImageVector,
+  text: @Composable RowScope.() -> Unit,
+  modifier: Modifier = Modifier,
+  endIcon: ImageVector? = null,
+  onClick: (() -> Unit)? = null
+) {
+  val padHorizontal = if (onClick != null) 19.dp else 32.dp
+  val padVertical = if (onClick != null) 4.dp else 6.dp
+
+  Row(
+    verticalAlignment = Alignment.CenterVertically,
+    modifier = modifier
+      .padding(horizontal = padHorizontal)
+      .padding(vertical = padVertical)
+      .let {
+        if (onClick != null) {
+          it
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(top = 2.dp, bottom = 2.dp, start = 13.dp, end = 8.dp)
+        } else {
+          it
+        }
+      }
+  ) {
+    Icon(
+      imageVector = startIcon,
+      contentDescription = null,
+      modifier = Modifier
+        .padding(end = 16.dp)
+        .size(20.dp)
+    )
+
+    text()
+
+    if (endIcon != null) {
+      Icon(
+        imageVector = endIcon,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.outline
+      )
+    }
+  }
+}
+
+@Preview(name = "Light Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_NO)
+@Preview(name = "Dark Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ContentPreviewDefault() {
+  Previews.Preview {
+    Surface {
+      Content(
+        model = AboutModel(
+          isSelf = false,
+          displayName = "Peter Parker",
+          shortName = "Peter",
+          profileName = "Peter Parker",
+          about = "Photographer for the Daily Bugle.",
+          verified = true,
+          hasAvatar = true,
+          recipientForAvatar = Recipient.UNKNOWN,
+          formattedE164 = "(123) 456-7890",
+          profileSharing = true,
+          systemContact = true,
+          groupsInCommon = 0,
+          note = "GET ME SPIDERMAN BEFORE I BLOW A DANG GASKET"
+        ),
+        onClickSignalConnections = {},
+        onAvatarClicked = {},
+        onNoteClicked = {}
+      )
+    }
+  }
+}
+
+@Preview(name = "Light Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_NO)
+@Preview(name = "Dark Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ContentPreviewWithUserSetDisplayName() {
+  Previews.Preview {
+    Surface {
+      Content(
+        model = AboutModel(
+          isSelf = false,
+          displayName = "Amazing Spider-man",
+          shortName = "Spiderman",
+          profileName = "Peter Parker",
+          about = "Photographer for the Daily Bugle.",
+          verified = true,
+          hasAvatar = true,
+          recipientForAvatar = Recipient.UNKNOWN,
+          formattedE164 = "(123) 456-7890",
+          profileSharing = true,
+          systemContact = true,
+          groupsInCommon = 0,
+          note = "Weird Things Happen To Me All The Time."
+        ),
+        onClickSignalConnections = {},
+        onAvatarClicked = {},
+        onNoteClicked = {}
+      )
+    }
+  }
+}
+
+@Preview(name = "Light Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_NO)
+@Preview(name = "Dark Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ContentPreviewForSelf() {
+  Previews.Preview {
+    Surface {
+      Content(
+        model = AboutModel(
+          isSelf = true,
+          displayName = "Amazing Spider-man",
+          shortName = "Spiderman",
+          profileName = "Peter Parker",
+          about = "Photographer for the Daily Bugle.",
+          verified = true,
+          hasAvatar = true,
+          recipientForAvatar = Recipient.UNKNOWN,
+          formattedE164 = "(123) 456-7890",
+          profileSharing = true,
+          systemContact = true,
+          groupsInCommon = 0,
+          memberLabel = MemberLabel("🕷️", "Superhero"),
+          canEditMemberLabel = true,
+          note = "Weird Things Happen To Me All The Time."
+        ),
+        onClickSignalConnections = {},
+        onAvatarClicked = {},
+        onNoteClicked = {}
+      )
+    }
+  }
+}
+
+@Preview(name = "Light Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_NO)
+@Preview(name = "Dark Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ContentPreviewInContactsNotProfileSharing() {
+  Previews.Preview {
+    Surface {
+      Content(
+        model = AboutModel(
+          isSelf = false,
+          displayName = "Peter Parker",
+          shortName = "Peter",
+          profileName = "Peter Parker",
+          about = "Photographer for the Daily Bugle.",
+          verified = false,
+          hasAvatar = true,
+          recipientForAvatar = Recipient.UNKNOWN,
+          formattedE164 = null,
+          profileSharing = false,
+          systemContact = true,
+          groupsInCommon = 3,
+          note = "GET ME SPIDER MAN"
+        ),
+        onClickSignalConnections = {},
+        onAvatarClicked = {},
+        onNoteClicked = {}
+      )
+    }
+  }
+}
+
+@Preview(name = "Light Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_NO)
+@Preview(name = "Dark Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ContentPreviewGroupsInCommonNoE164() {
+  Previews.Preview {
+    Surface {
+      Content(
+        model = AboutModel(
+          isSelf = false,
+          displayName = "Peter Parker",
+          shortName = "Peter",
+          profileName = "Peter Parker",
+          about = "Photographer for the Daily Bugle.",
+          verified = false,
+          hasAvatar = true,
+          recipientForAvatar = Recipient.UNKNOWN,
+          formattedE164 = null,
+          profileSharing = true,
+          systemContact = false,
+          groupsInCommon = 3,
+          note = "GET ME SPIDERMAN"
+        ),
+        onClickSignalConnections = {},
+        onAvatarClicked = {},
+        onNoteClicked = {}
+      )
+    }
+  }
+}
+
+@Preview(name = "Light Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_NO)
+@Preview(name = "Dark Theme", group = "content", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ContentPreviewNotAConnection() {
+  Previews.Preview {
+    Surface {
+      Content(
+        model = AboutModel(
+          isSelf = false,
+          displayName = "Peter Parker",
+          shortName = "Peter",
+          profileName = "Peter Parker",
+          about = "Photographer for the Daily Bugle.",
+          verified = false,
+          hasAvatar = true,
+          recipientForAvatar = Recipient.UNKNOWN,
+          formattedE164 = null,
+          profileSharing = false,
+          systemContact = false,
+          groupsInCommon = 3,
+          note = "GET ME SPIDERMAN"
+        ),
+        onClickSignalConnections = {},
+        onAvatarClicked = {},
+        onNoteClicked = {}
+      )
+    }
+  }
+}
+
+@DayNightPreviews
+@Composable
+private fun ContentPreviewNotAConnectionNoGroups() {
+  Previews.Preview {
+    Surface {
+      Content(
+        model = AboutModel(
+          isSelf = false,
+          displayName = "Peter Parker",
+          shortName = "Peter",
+          profileName = "Peter Parker",
+          about = "(spoilers) dead",
+          verified = false,
+          hasAvatar = true,
+          recipientForAvatar = Recipient.UNKNOWN,
+          formattedE164 = null,
+          profileSharing = false,
+          systemContact = false,
+          groupsInCommon = 0,
+          note = ""
+        ),
+        onClickSignalConnections = {},
+        onAvatarClicked = {},
+        onNoteClicked = {}
+      )
+    }
+  }
+}
+
+@Preview(name = "Light Theme", group = "about row", uiMode = Configuration.UI_MODE_NIGHT_NO)
+@Preview(name = "Dark Theme", group = "about row", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun AboutRowPreview() {
+  Previews.Preview {
+    Surface {
+      AboutRow(
+        startIcon = ImageVector.vectorResource(R.drawable.symbol_person_24),
+        text = "Maya Johnson",
+        endIcon = ImageVector.vectorResource(id = R.drawable.symbol_chevron_right_compact_bold_16)
+      )
+    }
+  }
+}
+
+@DayNightPreviews
+@Composable
+private fun MemberLabelRowPreviews() = Previews.Preview {
+  val headerModifier = Modifier
+    .fillMaxWidth()
+    .background(MaterialTheme.colorScheme.primaryContainer)
+    .padding(vertical = 4.dp)
+    .padding(horizontal = 8.dp)
+
+  Column {
+    Text("no label, can't edit:", style = MaterialTheme.typography.labelSmall, modifier = headerModifier)
+    MemberLabelRow(memberLabel = null, canEdit = false, onClick = {})
+
+    Text("no label, editable:", style = MaterialTheme.typography.labelSmall, modifier = headerModifier)
+    MemberLabelRow(memberLabel = null, canEdit = true, onClick = {})
+
+    Text("has label, can't edit:", style = MaterialTheme.typography.labelSmall, modifier = headerModifier)
+    MemberLabelRow(memberLabel = MemberLabel("🕷️", "Superhero"), canEdit = false, onClick = {})
+
+    Text("has label, editable:", style = MaterialTheme.typography.labelSmall, modifier = headerModifier)
+    MemberLabelRow(memberLabel = MemberLabel("🕷️", "Superhero"), canEdit = true, onClick = {})
+  }
+}

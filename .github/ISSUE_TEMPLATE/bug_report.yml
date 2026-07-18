@@ -1,0 +1,63 @@
+name: "🐛 Bug Report"
+description: "Help us fix issues by providing a detailed report."
+body:
+  - type: checkboxes
+    id: guidelines
+    attributes:
+      label: "Guidelines"
+      description: |
+        Please check whether this issue has already been reported to avoid duplicates.
+        [Search existing issues](https://github.com/mollyim/mollyim-android/issues?q=is%3Aissue+-type%3AFeature).
+      options:
+        - label: "Yes, I have searched for existing issues"
+          required: true
+  - type: textarea
+    id: description-of-bug
+    attributes:
+      label: "Bug Description"
+      description: "Explain the problem clearly, including the steps to reproduce it."
+      placeholder: "What did you do, and what went wrong?"
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots"
+      description: "How to take screenshots: https://support.google.com/android/answer/9075928"
+      placeholder: "Drag and drop images or videos here."
+    validations:
+      required: false
+  - type: input
+    id: app-version
+    attributes:
+      label: "App Version"
+      description: "Molly app ► Settings ► Help"
+      placeholder: "e.g. v7.21.5-2"
+    validations:
+      required: true
+  - type: input
+    id: device-model
+    attributes:
+      label: "Device Model"
+      description: "System Settings ► About Phone"
+      placeholder: "e.g. Pixel 9"
+    validations:
+      required: false
+  - type: input
+    id: android-version
+    attributes:
+      label: "Android Version"
+      description: "System Settings ► About Phone"
+      placeholder: "e.g. Android 14"
+    validations:
+      required: false
+  - type: input
+    id: debug-log
+    attributes:
+      label: "Link to Debug Log"
+      description: |
+        If possible, include a debug log: Molly app ► Settings ► Help ► Debug Log.
+        Copy the generated link here. Logs cover about 24 hours, so capture it soon after the issue occurs.
+      placeholder: "e.g. https://debuglogs.org/..."
+    validations:
+      required: false

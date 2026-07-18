@@ -1,0 +1,567 @@
+/*
+ * Copyright 2023 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+package org.thoughtcrime.securesms.jobs
+
+import androidx.annotation.MainThread
+import okio.Source
+import okio.buffer
+import org.greenrobot.eventbus.EventBus
+import org.signal.core.models.database.AttachmentId
+import org.signal.core.util.Base64
+import org.signal.core.util.Hex
+import org.signal.core.util.Util
+import org.signal.core.util.logging.Log
+import org.signal.libsignal.protocol.InvalidMacException
+import org.signal.libsignal.protocol.InvalidMessageException
+import org.signal.network.exceptions.NonSuccessfulResponseCodeException
+import org.signal.network.exceptions.PushNetworkException
+import org.thoughtcrime.securesms.attachments.Attachment
+import org.thoughtcrime.securesms.attachments.Cdn
+import org.thoughtcrime.securesms.attachments.DatabaseAttachment
+import org.thoughtcrime.securesms.attachments.InvalidAttachmentException
+import org.thoughtcrime.securesms.database.AttachmentTable
+import org.thoughtcrime.securesms.database.SignalDatabase
+import org.thoughtcrime.securesms.dependencies.AppDependencies
+import org.thoughtcrime.securesms.events.PartProgressEvent
+import org.thoughtcrime.securesms.jobmanager.Job
+import org.thoughtcrime.securesms.jobmanager.Job.Parameters
+import org.thoughtcrime.securesms.jobmanager.JobLogger.format
+import org.thoughtcrime.securesms.jobmanager.JsonJobData
+import org.thoughtcrime.securesms.jobmanager.impl.NetworkConstraint
+import org.thoughtcrime.securesms.jobmanager.impl.NotInCallConstraint
+import org.thoughtcrime.securesms.jobmanager.persistence.JobSpec
+import org.thoughtcrime.securesms.keyvalue.SignalStore
+import org.thoughtcrime.securesms.mms.MmsException
+import org.thoughtcrime.securesms.notifications.v2.ConversationId.Companion.forConversation
+import org.thoughtcrime.securesms.s3.S3
+import org.thoughtcrime.securesms.transport.RetryLaterException
+import org.thoughtcrime.securesms.util.AttachmentUtil
+import org.thoughtcrime.securesms.util.MediaUtil
+import org.thoughtcrime.securesms.util.MessageUtil
+import org.thoughtcrime.securesms.util.RemoteConfig
+import org.whispersystems.signalservice.api.crypto.AttachmentCipherInputStream.IntegrityCheck
+import org.whispersystems.signalservice.api.crypto.AttachmentCipherStreamUtil
+import org.whispersystems.signalservice.api.messages.AttachmentTransferProgress
+import org.whispersystems.signalservice.api.messages.SignalServiceAttachment
+import org.whispersystems.signalservice.api.messages.SignalServiceAttachmentPointer
+import org.whispersystems.signalservice.api.messages.SignalServiceAttachmentRemoteId
+import org.whispersystems.signalservice.api.push.exceptions.MissingConfigurationException
+import org.whispersystems.signalservice.api.push.exceptions.RangeException
+import org.whispersystems.signalservice.internal.crypto.PaddingInputStream
+import java.io.File
+import java.io.IOException
+import java.util.Optional
+import java.util.concurrent.TimeUnit
+
+/**
+ * Download attachment from locations as specified in their record.
+ */
+class AttachmentDownloadJob private constructor(
+  parameters: Parameters,
+  private val messageId: Long,
+  private val attachmentId: AttachmentId,
+  private val forceDownload: Boolean,
+  private val requestSource: RequestSource
+) : BaseJob(parameters) {
+
+  companion object {
+    const val KEY = "AttachmentDownloadJob"
+    private val TAG = Log.tag(AttachmentDownloadJob::class.java)
+
+    private const val KEY_MESSAGE_ID = "message_id"
+    private const val KEY_ATTACHMENT_ID = "part_row_id"
+    private const val KEY_FORCE_DOWNLOAD = "part_manual"
+    private const val KEY_SOURCE = "requestSource"
+
+    @JvmStatic
+    fun constructQueueString(attachmentId: AttachmentId): String {
+      return "AttachmentDownloadJob-" + attachmentId.id
+    }
+
+    fun jobSpecMatchesAttachmentId(jobSpec: JobSpec, attachmentId: AttachmentId): Boolean {
+      if (KEY != jobSpec.factoryKey) {
+        return false
+      }
+
+      val serializedData = jobSpec.serializedData ?: return false
+      val data = JsonJobData.deserialize(serializedData)
+      val parsed = AttachmentId(data.getLong(KEY_ATTACHMENT_ID))
+      return attachmentId == parsed
+    }
+
+    @JvmStatic
+    @MainThread
+    fun downloadAttachmentIfNeeded(databaseAttachment: DatabaseAttachment): String? {
+      return when (val transferState = databaseAttachment.transferState) {
+        AttachmentTable.TRANSFER_PROGRESS_DONE -> null
+
+        AttachmentTable.TRANSFER_RESTORE_IN_PROGRESS,
+        AttachmentTable.TRANSFER_RESTORE_OFFLOADED,
+        AttachmentTable.TRANSFER_NEEDS_RESTORE -> RestoreAttachmentJob.forManualRestore(databaseAttachment)
+
+        AttachmentTable.TRANSFER_PROGRESS_PENDING,
+        AttachmentTable.TRANSFER_PROGRESS_FAILED -> {
+          if (SignalStore.backup.backsUpMedia && (databaseAttachment.remoteLocation == null || databaseAttachment.remoteDigest == null)) {
+            if (databaseAttachment.dataHash != null) {
+              Log.i(TAG, "Trying to restore attachment from archive cdn")
+              RestoreAttachmentJob.forManualRestore(databaseAttachment)
+            } else {
+              Log.w(TAG, "No remote location and no plaintext hash. Can't download.")
+              null
+            }
+          } else {
+            val downloadJob = AttachmentDownloadJob(
+              messageId = databaseAttachment.mmsId,
+              attachmentId = databaseAttachment.attachmentId,
+              forceDownload = true,
+              requestSource = RequestSource.USER
+            )
+            AppDependencies.jobManager.add(downloadJob)
+            downloadJob.id
+          }
+        }
+
+        AttachmentTable.TRANSFER_PROGRESS_STARTED -> {
+          Log.i(TAG, "${databaseAttachment.attachmentId} is in started state, enqueueing force download in case existing job is constraint-blocked")
+          val downloadJob = AttachmentDownloadJob(
+            messageId = databaseAttachment.mmsId,
+            attachmentId = databaseAttachment.attachmentId,
+            forceDownload = true
+          )
+          AppDependencies.jobManager.add(downloadJob)
+          downloadJob.id
+        }
+
+        AttachmentTable.TRANSFER_PROGRESS_PERMANENT_FAILURE -> {
+          Log.d(TAG, "${databaseAttachment.attachmentId} is permanently failed, transferState: $transferState")
+          null
+        }
+
+        else -> {
+          Log.w(TAG, "Attempted to download attachment with unknown transfer state: $transferState")
+          null
+        }
+      }
+    }
+  }
+
+  @JvmOverloads
+  constructor(
+    messageId: Long,
+    attachmentId: AttachmentId,
+    forceDownload: Boolean,
+    requestSource: RequestSource = RequestSource.AUTO
+  ) : this(messageId, attachmentId, forceDownload, forceDownload, forceDownload, requestSource)
+
+  @JvmOverloads
+  constructor(
+    messageId: Long,
+    attachmentId: AttachmentId,
+    forceDownload: Boolean,
+    skipInCallConstraint: Boolean,
+    isHighPriority: Boolean,
+    requestSource: RequestSource = RequestSource.AUTO
+  ) : this(
+    Parameters.Builder()
+      .setQueue(constructQueueString(attachmentId))
+      .addConstraint(NetworkConstraint.KEY)
+      .maybeApplyNotInCallConstraint(skipInCallConstraint)
+      .setLifespan(TimeUnit.DAYS.toMillis(1))
+      .setMaxAttempts(Parameters.UNLIMITED)
+      .setQueuePriority(if (isHighPriority) Parameters.PRIORITY_HIGH else Parameters.PRIORITY_DEFAULT)
+      .build(),
+    messageId,
+    attachmentId,
+    forceDownload,
+    requestSource
+  )
+
+  override fun serialize(): ByteArray? {
+    return JsonJobData.Builder()
+      .putLong(KEY_MESSAGE_ID, messageId)
+      .putLong(KEY_ATTACHMENT_ID, attachmentId.id)
+      .putBoolean(KEY_FORCE_DOWNLOAD, forceDownload)
+      .putString(KEY_SOURCE, requestSource.name)
+      .serialize()
+  }
+
+  override fun getFactoryKey(): String {
+    return KEY
+  }
+
+  override fun onAdded() {
+    Log.i(TAG, "onAdded() messageId: $messageId  attachmentId: $attachmentId  manual: $forceDownload")
+
+    val attachment = SignalDatabase.attachments.getAttachment(attachmentId)
+    val pending = attachment != null && attachment.transferState != AttachmentTable.TRANSFER_PROGRESS_DONE && attachment.transferState != AttachmentTable.TRANSFER_PROGRESS_PERMANENT_FAILURE
+
+    if (pending && (forceDownload || AttachmentUtil.isAutoDownloadPermitted(context, attachment))) {
+      Log.i(TAG, "onAdded() Marking attachment progress as 'started'")
+      SignalDatabase.attachments.setTransferState(messageId, attachmentId, AttachmentTable.TRANSFER_PROGRESS_STARTED)
+    }
+  }
+
+  @Throws(Exception::class)
+  public override fun onRun() {
+    doWork()
+
+    if (!SignalDatabase.messages.isStory(messageId)) {
+      AppDependencies.messageNotifier.updateNotification(context, forConversation(0))
+    }
+  }
+
+  @Throws(IOException::class, RetryLaterException::class)
+  fun doWork() {
+    Log.i(TAG, "onRun() messageId: $messageId  attachmentId: $attachmentId  manual: $forceDownload")
+
+    val attachment = SignalDatabase.attachments.getAttachment(attachmentId)
+
+    if (attachment == null) {
+      Log.w(TAG, "attachment no longer exists.")
+      return
+    }
+
+    if (attachment.isPermanentlyFailed) {
+      Log.w(TAG, "Attachment was marked as a permanent failure. Refusing to download.")
+      return
+    }
+
+    if (!attachment.isInProgress) {
+      Log.w(TAG, "Attachment was already downloaded.")
+      return
+    }
+
+    if (!forceDownload && !AttachmentUtil.isAutoDownloadPermitted(context, attachment)) {
+      Log.w(TAG, "Attachment can't be auto downloaded...")
+      SignalDatabase.attachments.setTransferState(messageId, attachmentId, AttachmentTable.TRANSFER_PROGRESS_PENDING)
+      return
+    }
+
+    if (SignalStore.backup.backsUpMedia && attachment.remoteLocation == null) {
+      if (attachment.archiveTransferState != AttachmentTable.ArchiveTransferState.FINISHED) {
+        throw InvalidAttachmentException("No remote location, and the archive transfer state is unfinished. Can't download.")
+      }
+
+      Log.i(TAG, "Trying to restore attachment from archive cdn instead")
+      RestoreAttachmentJob.forManualRestore(attachment)
+
+      return
+    }
+
+    Log.i(TAG, "Downloading push part $attachmentId")
+    SignalDatabase.attachments.setTransferState(messageId, attachmentId, AttachmentTable.TRANSFER_PROGRESS_STARTED)
+
+    when (attachment.cdn) {
+      Cdn.S3 -> {
+        if (!isReleaseChannelMessage(messageId)) {
+          Log.w(TAG, "Refusing to download an S3 attachment for a message that is not from the release channel.")
+          markPermanentlyFailed(messageId, attachmentId)
+          return
+        }
+        retrieveAttachmentForReleaseChannel(messageId, attachmentId, attachment)
+      }
+      else -> retrieveAttachment(messageId, attachmentId, attachment)
+    }
+
+    if (SignalStore.backup.backsUpMedia) {
+      val isStory = SignalDatabase.messages.isStory(messageId)
+      when {
+        attachment.archiveTransferState == AttachmentTable.ArchiveTransferState.FINISHED -> {
+          Log.i(TAG, "[$attachmentId] Already archived. Skipping.")
+        }
+
+        attachment.cdn !in CopyAttachmentToArchiveJob.ALLOWED_SOURCE_CDNS -> {
+          Log.i(TAG, "[$attachmentId] Attachment CDN doesn't support copying to archive. Re-uploading to archive.")
+          AppDependencies.jobManager.add(UploadAttachmentToArchiveJob(attachmentId))
+        }
+
+        isStory -> {
+          Log.i(TAG, "[$attachmentId] Attachment is a story. Skipping.")
+        }
+
+        SignalDatabase.messages.isViewOnce(messageId) -> {
+          Log.i(TAG, "[$attachmentId] View-once. Skipping.")
+        }
+
+        SignalDatabase.messages.willMessageExpireBeforeCutoff(messageId) -> {
+          Log.i(TAG, "[$attachmentId] Message will expire within 24hrs. Skipping.")
+        }
+
+        SignalStore.account.isLinkedDevice -> {
+          Log.i(TAG, "[$attachmentId] Linked device. Skipping.")
+        }
+
+        else -> {
+          Log.i(TAG, "[$attachmentId] Enqueuing job to copy to archive.")
+          AppDependencies.jobManager.add(CopyAttachmentToArchiveJob(attachmentId))
+        }
+      }
+    }
+  }
+
+  override fun onFailure() {
+    Log.w(TAG, format(this, "onFailure() messageId: $messageId  attachmentId: $attachmentId  manual: $forceDownload"))
+
+    markFailed(messageId, attachmentId)
+  }
+
+  override fun onShouldRetry(exception: Exception): Boolean {
+    return exception is PushNetworkException ||
+      exception is RetryLaterException
+  }
+
+  /**
+   * @return True if the digest changed as part of downloading, otherwise false.
+   */
+  @Throws(IOException::class, RetryLaterException::class)
+  private fun retrieveAttachment(
+    messageId: Long,
+    attachmentId: AttachmentId,
+    attachment: DatabaseAttachment
+  ) {
+    val maxReceiveSize: Long = RemoteConfig.maxAttachmentReceiveSizeBytes
+    val attachmentFile: File = SignalDatabase.attachments.getOrCreateTransferFile(attachmentId)
+
+    try {
+      if (attachment.size > maxReceiveSize) {
+        throw MmsException("[$attachmentId] Attachment too large, failing download")
+      }
+
+      if (MediaUtil.isLongTextType(attachment.contentType) && attachment.size > MessageUtil.MAX_TOTAL_BODY_SIZE_BYTES) {
+        throw InvalidAttachmentException("[$attachmentId] Long-text attachment exceeds ${MessageUtil.MAX_TOTAL_BODY_SIZE_BYTES} byte cap, declared size: ${attachment.size}")
+      }
+
+      val pointer = createAttachmentPointer(attachment)
+
+      val progressListener = object : SignalServiceAttachment.ProgressListener {
+        override fun onAttachmentProgress(progress: AttachmentTransferProgress) {
+          EventBus.getDefault().postSticky(PartProgressEvent(attachment, PartProgressEvent.Type.NETWORK, progress))
+        }
+
+        override fun shouldCancel(): Boolean {
+          return this@AttachmentDownloadJob.isCanceled
+        }
+      }
+
+      if (attachment.remoteDigest == null && attachment.dataHash == null) {
+        Log.w(TAG, "[$attachmentId] Attachment has no integrity check!")
+        throw InvalidAttachmentException("Attachment has no integrity check!")
+      }
+
+      if (attachment.size <= 0) {
+        Log.w(TAG, "[$attachmentId] Attachment has no declared size!")
+        throw InvalidAttachmentException("Attachment has no declared size!")
+      }
+
+      val expectedCiphertextSize = AttachmentCipherStreamUtil.getCiphertextLength(PaddingInputStream.getPaddedSize(attachment.size))
+      val downloadLimit: Long = minOf(expectedCiphertextSize, maxReceiveSize)
+
+      val decryptingStream = AppDependencies
+        .signalServiceMessageReceiver
+        .retrieveAttachment(
+          pointer,
+          attachmentFile,
+          downloadLimit,
+          IntegrityCheck.forEncryptedDigestAndPlaintextHash(attachment.remoteDigest, attachment.dataHash),
+          progressListener
+        )
+
+      decryptingStream.use { input ->
+        SignalDatabase.attachments.finalizeAttachmentAfterDownload(messageId, attachmentId, input)
+      }
+    } catch (e: RangeException) {
+      Log.w(TAG, "[$attachmentId] Range exception, file size " + attachmentFile.length(), e)
+      if (attachmentFile.delete()) {
+        Log.i(TAG, "[$attachmentId] Deleted temp download file to recover")
+        throw RetryLaterException(e)
+      } else {
+        throw IOException("[$attachmentId] Failed to delete temp download file following range exception")
+      }
+    } catch (e: InvalidAttachmentException) {
+      Log.w(TAG, "[$attachmentId] Experienced exception while trying to download an attachment.", e)
+      markFailed(messageId, attachmentId)
+    } catch (e: NonSuccessfulResponseCodeException) {
+      if (SignalStore.backup.backsUpMedia && e.code == 404 && attachment.archiveTransferState === AttachmentTable.ArchiveTransferState.FINISHED) {
+        Log.i(TAG, "[$attachmentId] Retrying download from archive CDN")
+        RestoreAttachmentJob.forManualRestore(attachment)
+        return
+      }
+
+      Log.w(TAG, "[$attachmentId] Experienced exception while trying to download an attachment.", e)
+      markFailed(messageId, attachmentId)
+    } catch (e: MmsException) {
+      Log.w(TAG, "[$attachmentId] Experienced exception while trying to download an attachment.", e)
+      markFailed(messageId, attachmentId)
+    } catch (e: MissingConfigurationException) {
+      Log.w(TAG, "[$attachmentId] Experienced exception while trying to download an attachment.", e)
+      markFailed(messageId, attachmentId)
+    } catch (e: InvalidMessageException) {
+      Log.w(TAG, "[$attachmentId] Experienced an InvalidMessageException while trying to download an attachment.", e)
+      if (e.cause is InvalidMacException) {
+        Log.w(TAG, "[$attachmentId] Detected an invalid mac. Treating as a permanent failure.")
+        markPermanentlyFailed(messageId, attachmentId)
+      } else {
+        markFailed(messageId, attachmentId)
+      }
+    } catch (e: org.signal.libsignal.protocol.incrementalmac.InvalidMacException) {
+      Log.w(TAG, "[$attachmentId] Detected an invalid incremental mac. Clearing and marking as a temporary failure, requiring the user to manually try again.")
+      SignalDatabase.attachments.clearIncrementalMacsForAttachmentAndAnyDuplicates(attachmentId, attachment.remoteKey, attachment.dataHash)
+      markFailed(messageId, attachmentId)
+    }
+
+    attachmentFile.delete()
+  }
+
+  @Throws(InvalidAttachmentException::class)
+  private fun createAttachmentPointer(attachment: DatabaseAttachment): SignalServiceAttachmentPointer {
+    if (attachment.remoteKey.isNullOrEmpty()) {
+      throw InvalidAttachmentException("empty encrypted key")
+    }
+
+    if (attachment.remoteLocation.isNullOrEmpty()) {
+      throw InvalidAttachmentException("empty content id")
+    }
+
+    return try {
+      val cdnNumber = attachment.cdn.cdnNumber
+      val remoteId = SignalServiceAttachmentRemoteId.from(attachment.remoteLocation, cdnNumber)
+
+      val key = Base64.decode(attachment.remoteKey)
+
+      if (attachment.remoteDigest != null) {
+        Log.i(TAG, "Downloading attachment with digest: " + Hex.toString(attachment.remoteDigest))
+      } else {
+        throw InvalidAttachmentException("Null remote digest for $attachmentId")
+      }
+
+      SignalServiceAttachmentPointer(
+        cdnNumber,
+        remoteId,
+        null,
+        key,
+        Optional.of(Util.toIntExact(attachment.size)),
+        Optional.empty(),
+        0,
+        0,
+        Optional.ofNullable(attachment.remoteDigest),
+        Optional.ofNullable(attachment.getIncrementalDigest()),
+        attachment.incrementalMacChunkSize,
+        Optional.ofNullable(attachment.fileName),
+        attachment.voiceNote,
+        attachment.borderless,
+        attachment.videoGif,
+        Optional.empty(),
+        Optional.ofNullable(attachment.blurHash).map { it.hash },
+        attachment.uploadTimestamp,
+        attachment.uuid
+      )
+    } catch (e: IOException) {
+      Log.w(TAG, e)
+      throw InvalidAttachmentException(e)
+    } catch (e: ArithmeticException) {
+      Log.w(TAG, e)
+      throw InvalidAttachmentException(e)
+    }
+  }
+
+  @Throws(IOException::class)
+  private fun retrieveAttachmentForReleaseChannel(
+    messageId: Long,
+    attachmentId: AttachmentId,
+    attachment: Attachment
+  ) {
+    try {
+      S3.getObject(attachment.fileName!!).use { response ->
+        val body = response.body
+        if (body.contentLength() > RemoteConfig.maxAttachmentReceiveSizeBytes) {
+          throw MmsException("Attachment too large, failing download")
+        }
+
+        SignalDatabase.attachments.createRemoteKeyIfNecessary(attachmentId)
+
+        SignalDatabase.attachments.finalizeAttachmentAfterDownload(
+          messageId,
+          attachmentId,
+          (body.source() as Source).buffer().inputStream()
+        )
+      }
+    } catch (e: MmsException) {
+      Log.w(TAG, "Experienced exception while trying to download an attachment.", e)
+      markFailed(messageId, attachmentId)
+    }
+  }
+
+  private fun isReleaseChannelMessage(messageId: Long): Boolean {
+    val releaseChannelRecipientId = SignalStore.releaseChannel.releaseChannelRecipientId ?: return false
+    val messageRecord = SignalDatabase.messages.getMessageRecordOrNull(messageId) ?: return false
+    return messageRecord.fromRecipient.id == releaseChannelRecipientId
+  }
+
+  private fun markFailed(messageId: Long, attachmentId: AttachmentId) {
+    SignalDatabase.attachments.setTransferProgressFailed(attachmentId, messageId)
+
+    if (requestSource == RequestSource.BACKFILL) {
+      AttachmentBackfill.onAttachmentTerminal(attachmentId, messageId)
+    } else {
+      maybeRequestBackfill()
+    }
+  }
+
+  private fun markPermanentlyFailed(messageId: Long, attachmentId: AttachmentId) {
+    SignalDatabase.attachments.setTransferProgressPermanentFailure(attachmentId, messageId)
+
+    if (requestSource == RequestSource.BACKFILL) {
+      AttachmentBackfill.onAttachmentTerminal(attachmentId, messageId)
+    } else {
+      maybeRequestBackfill()
+    }
+  }
+
+  private fun maybeRequestBackfill() {
+    if (SignalStore.account.isPrimaryDevice || requestSource != RequestSource.USER) {
+      return
+    }
+
+    val attachment = SignalDatabase.attachments.getAttachment(attachmentId) ?: return
+
+    if (SignalStore.backup.backsUpMedia && attachment.dataHash != null && attachment.transferState == AttachmentTable.TRANSFER_PROGRESS_FAILED) {
+      Log.i(TAG, "[$attachmentId] Backs up media and have a plaintext hash; attempting archive restore before backfill")
+      RestoreAttachmentJob.forManualRestore(attachment)
+      return
+    }
+
+    AttachmentBackfill.maybeRequest(messageId, attachment)
+  }
+
+  enum class RequestSource {
+    AUTO,
+    USER,
+    BACKFILL;
+
+    companion object {
+      fun fromName(name: String?): RequestSource = entries.firstOrNull { it.name == name } ?: AUTO
+    }
+  }
+
+  class Factory : Job.Factory<AttachmentDownloadJob?> {
+    override fun create(parameters: Parameters, serializedData: ByteArray?): AttachmentDownloadJob {
+      val data = JsonJobData.deserialize(serializedData)
+      return AttachmentDownloadJob(
+        parameters = parameters,
+        messageId = data.getLong(KEY_MESSAGE_ID),
+        attachmentId = AttachmentId(data.getLong(KEY_ATTACHMENT_ID)),
+        forceDownload = data.getBoolean(KEY_FORCE_DOWNLOAD),
+        requestSource = RequestSource.fromName(data.getStringOrDefault(KEY_SOURCE, null))
+      )
+    }
+  }
+}
+
+private fun Parameters.Builder.maybeApplyNotInCallConstraint(skipConstraint: Boolean): Parameters.Builder {
+  if (skipConstraint) {
+    return this
+  }
+  return this.addConstraint(NotInCallConstraint.KEY)
+}

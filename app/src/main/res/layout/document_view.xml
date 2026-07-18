@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="org.thoughtcrime.securesms.components.DocumentView"
+    tools:viewBindingIgnore="true">
+
+    <LinearLayout
+        android:id="@+id/document_container"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:clickable="false"
+        android:focusable="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <org.thoughtcrime.securesms.components.AnimatingToggle
+            android:id="@+id/control_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:clickable="false"
+            android:focusable="false"
+            android:gravity="center">
+
+            <FrameLayout
+                android:id="@+id/stop_upload_progress_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:background="@drawable/circle_touch_highlight_background"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:visibility="gone">
+
+                <com.pnikosis.materialishprogress.ProgressWheel
+                    android:id="@+id/download_progress"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:clickable="false"
+                    android:visibility="visible"
+                    app:matProg_barColor="@color/white"
+                    app:matProg_linearProgress="true"
+                    app:matProg_spinSpeed="0.333"
+                    tools:visibility="visible" />
+
+                <ImageView
+                    android:id="@+id/stop_upload"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:clickable="false"
+                    android:contentDescription="@string/document_view__cancel_accessibility_description"
+                    android:focusable="false"
+                    android:src="@drawable/transfer_controls_stop_icon"
+                    tools:visibility="visible" />
+
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/icon_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="-4dp"
+                android:clickable="false"
+                android:focusable="false"
+                android:gravity="center"
+                android:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/icon"
+                    android:layout_width="38dp"
+                    android:layout_height="50dp"
+                    android:contentDescription="@string/DocumentView_document_file"
+                    android:src="@drawable/ic_document_large" />
+
+                <TextView
+                    android:id="@+id/document"
+                    style="@style/Signal.Text.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:clickable="false"
+                    android:gravity="center"
+                    android:scaleType="centerInside"
+                    android:textAlignment="center"
+                    android:textColor="@color/core_black"
+                    android:textSize="10sp"
+                    android:visibility="visible"
+                    tools:text="PDF"
+                    tools:visibility="visible" />
+
+            </FrameLayout>
+
+            <ImageView
+                android:id="@+id/download"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center_vertical"
+                android:background="@drawable/circle_touch_highlight_background"
+                android:clickable="true"
+                android:contentDescription="@string/document_view__download_accessibility_description"
+                android:focusable="true"
+                android:src="@drawable/download_attachment"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/upload"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center_vertical"
+                android:background="@drawable/circle_touch_highlight_background"
+                android:clickable="true"
+                android:contentDescription="@string/document_view__upload_accessibility_description"
+                android:focusable="true"
+                android:rotation="180"
+                android:src="@drawable/download_attachment"
+                android:visibility="gone" />
+
+        </org.thoughtcrime.securesms.components.AnimatingToggle>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:clickable="false"
+            android:focusable="false"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/file_name"
+                style="@style/Signal.Text.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clickable="false"
+                android:ellipsize="end"
+                tools:text="The-Anarchist-Tension-by-Alfredo-Bonanno.pdf" />
+
+            <TextView
+                android:id="@+id/file_size"
+                style="@style/Signal.Text.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="false"
+                tools:text="24kb" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:id="@+id/thumbnail_media_archive"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_gravity="top|left"
+        android:background="@drawable/circle_tintable"
+        android:visibility="gone"
+        tools:visibility="visible" />
+</merge>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Signal.DayNight" parent="TextSecure.DarkTheme" />
+
+    <style name="Signal.DayNight.Registration" parent="TextSecure.DarkRegistrationTheme" />
+
+    <style name="Signal.DayNight.WallpaperCropper" parent="Theme.Signal.WallpaperCropper" />
+
+    <style name="Signal.DayNight.BottomSheet.Rounded" parent="Theme.Signal.RoundedBottomSheet" />
+
+    <style name="Signal.DayNight.ConversationSettings" parent="TextSecure.DarkNoActionBar.ConversationSettings" />
+
+    <style name="Theme.Signal.DayNight.NoActionBar" parent="TextSecure.DarkNoActionBar" />
+
+    <style name="Theme.Molly.Dynamic" parent="Theme.Molly.Dynamic.Dark" />
+    <style name="Theme.Molly.Dynamic.NoActionBar" parent="Theme.Molly.Dynamic.NoActionBar.Dark" />
+    <style name="Theme.Molly.Dynamic.Registration" parent="Theme.Molly.Dynamic.Registration.Dark" />
+    <style name="Theme.Molly.Dynamic.ConversationSettings" parent="Theme.Molly.Dynamic.ConversationSettings.Dark" />
+    <style name="Theme.Molly.Starting" parent="Theme.Molly.Starting.Dark" />
+</resources>

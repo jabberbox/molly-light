@@ -1,0 +1,36 @@
+name: Sync Upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: upstream
+          fetch-depth: 0
+          lfs: true
+          persist-credentials: false
+
+      - run: gh auth setup-git
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: git remote add upstream https://github.com/signalapp/Signal-Android.git
+      - run: git pull --ff-only upstream main
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+
+      - run: git lfs fetch --all upstream
+      - run: git push origin upstream
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT }}

@@ -1,0 +1,136 @@
+name: Reproducible Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Enter the version to check"
+        required: true
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
+env:
+  TAG_REF: "${{ github.event.inputs.version || github.event.release.tag_name }}"
+  BUILD_ENV_FILE: ${{ vars.BUILD_ENV_FILE || 'beta-stable.env' }}
+
+jobs:
+  build:
+    name: Build new
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: "${{ env.TAG_REF }}"
+
+      - name: Free up disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set up builder image
+        run: docker compose build
+        working-directory: reproducible-builds
+
+      - name: Export CI environment variables
+        run: |
+          cp -v "ci/$BUILD_ENV_FILE" .env
+          for var in APP_TITLE APP_FILENAME PACKAGE_ID \
+                     BUILD_VARIANTS FORCE_INTERNAL_USER_FLAG \
+                     MAPS_API_KEY; do
+            if [ -n "${!var}" ]; then
+              echo "Setting CI_$var=${!var}"
+              echo "CI_$var=${!var}" >> $GITHUB_ENV
+            fi
+          done
+        working-directory: reproducible-builds
+        env:
+          APP_TITLE: ${{ vars.CI_APP_TITLE }}
+          APP_FILENAME: ${{ vars.CI_APP_FILENAME }}
+          PACKAGE_ID: ${{ vars.CI_PACKAGE_ID }}
+          BUILD_VARIANTS: ${{ vars.CI_BUILD_VARIANTS }}
+          FORCE_INTERNAL_USER_FLAG: ${{ vars.CI_FORCE_INTERNAL_USER_FLAG }}
+
+      - name: Build release
+        run: docker compose run assemble
+        working-directory: reproducible-builds
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: new
+          path: reproducible-builds/outputs/apk/*/release/*.apk
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: apkdiff
+          path: reproducible-builds/apkdiff/apkdiff.py
+          if-no-files-found: error
+
+  download:
+    name: Download original
+    runs-on: ubuntu-24.04
+    outputs:
+      apks: "${{ steps.set.outputs.apks }}"
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: "${{ env.TAG_REF }}"
+
+      - name: Download published APKs
+        run: gh release download --pattern '*.apk' "$TAG_REF"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: original
+          path: "*.apk"
+          if-no-files-found: error
+
+      - name: Output filenames to compare
+        id: set
+        run: |
+          apks=$(jq -c -n '[$ARGS.positional[] | sub("-unsigned-";"-")]' --args *.apk)
+          echo "apks=$apks" >> $GITHUB_OUTPUT
+
+  compare:
+    name: Compare
+    runs-on: ubuntu-24.04
+    needs:
+      - build
+      - download
+    strategy:
+      fail-fast: false
+      matrix:
+        apk-file: ${{ fromJSON(needs.download.outputs.apks) }}
+
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Install diffuse
+        run: |
+          curl -o diffuse.jar -L https://github.com/JakeWharton/diffuse/releases/download/0.1.0/diffuse-0.1.0-binary.jar
+          echo "$SHA256" diffuse.jar | sha256sum -c -
+        env:
+          SHA256: 60d619373c46a5d06b8126c1d61e0adc18b72f2cbb9245ef920d3387e44b86cf
+
+      - name: Normalize APK filenames
+        run: |
+          mv -v new/*/release/*.apk new/
+          for fn in */*-unsigned-*.apk; do
+            mv -v "$fn" "$(sed 's/-unsigned-/-/' <<< $fn)"
+          done
+
+      - name: Log diffuse full output
+        run: java -jar diffuse.jar diff "original/$APK_FILE" "new/$APK_FILE"
+        env:
+          APK_FILE: "${{ matrix.apk-file }}"
+
+      - name: Check for reproducibility
+        run: python apkdiff/apkdiff.py "original/$APK_FILE" "new/$APK_FILE"
+        env:
+          APK_FILE: "${{ matrix.apk-file }}"

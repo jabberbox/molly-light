@@ -1,0 +1,647 @@
+package org.thoughtcrime.securesms.jobs
+
+import androidx.annotation.WorkerThread
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import org.signal.core.util.Base64.decode
+import org.signal.core.util.ExpiringProfileCredentialUtil
+import org.signal.core.util.Stopwatch
+import org.signal.core.util.Util
+import org.signal.core.util.concurrent.SignalExecutors
+import org.signal.core.util.logging.Log
+import org.signal.libsignal.protocol.IdentityKey
+import org.signal.libsignal.protocol.InvalidKeyException
+import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredential
+import org.signal.libsignal.zkgroup.profiles.ProfileKey
+import org.thoughtcrime.securesms.badges.Badges
+import org.thoughtcrime.securesms.crypto.ProfileKeyUtil
+import org.thoughtcrime.securesms.crypto.SealedSenderAccessUtil
+import org.thoughtcrime.securesms.database.GroupTable
+import org.thoughtcrime.securesms.database.RecipientTable
+import org.thoughtcrime.securesms.database.RecipientTable.Companion.maskCapabilitiesToLong
+import org.thoughtcrime.securesms.database.RecipientTable.PhoneNumberSharingState
+import org.thoughtcrime.securesms.database.RecipientTable.SealedSenderAccessMode
+import org.thoughtcrime.securesms.database.SignalDatabase
+import org.thoughtcrime.securesms.database.model.IdentityRecord
+import org.thoughtcrime.securesms.database.model.RecipientRecord
+import org.thoughtcrime.securesms.dependencies.AppDependencies
+import org.thoughtcrime.securesms.jobmanager.Job
+import org.thoughtcrime.securesms.jobmanager.JsonJobData
+import org.thoughtcrime.securesms.jobmanager.impl.NetworkConstraint
+import org.thoughtcrime.securesms.keyvalue.SignalStore
+import org.thoughtcrime.securesms.net.SignalNetwork
+import org.thoughtcrime.securesms.notifications.v2.ConversationId.Companion.forConversation
+import org.thoughtcrime.securesms.profiles.ProfileName
+import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.recipients.RecipientCreator
+import org.thoughtcrime.securesms.recipients.RecipientId
+import org.thoughtcrime.securesms.recipients.RecipientUtil
+import org.thoughtcrime.securesms.storage.StorageSyncHelper
+import org.thoughtcrime.securesms.transport.RetryLaterException
+import org.thoughtcrime.securesms.util.IdentityUtil
+import org.thoughtcrime.securesms.util.ProfileUtil
+import org.whispersystems.signalservice.api.crypto.InvalidCiphertextException
+import org.whispersystems.signalservice.api.crypto.ProfileCipher
+import org.whispersystems.signalservice.api.profiles.ProfileRepository
+import org.whispersystems.signalservice.api.profiles.ProfileRepository.IdProfilePair
+import org.whispersystems.signalservice.api.profiles.ProfileRepository.ProfileFetchRequest
+import org.whispersystems.signalservice.api.profiles.ProfileRepository.ProfileFetchResult
+import org.whispersystems.signalservice.api.profiles.ProfileRepository.SignalServiceProfileWithCredential
+import org.whispersystems.signalservice.api.profiles.SignalServiceProfile
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+
+/**
+ * Retrieves a users profile and sets the appropriate local fields.
+ */
+class RetrieveProfileJob private constructor(parameters: Parameters, private val recipientIds: MutableSet<RecipientId>, private val skipDebounce: Boolean) : BaseJob(parameters) {
+  private constructor(recipientIds: Set<RecipientId>, skipDebounce: Boolean) : this(
+    parameters = Parameters.Builder()
+      .addConstraint(NetworkConstraint.KEY)
+      .apply {
+        if (recipientIds.size < 5) {
+          setQueue(recipientIds.map { it.toLong() }.sorted().joinToString(separator = "_", prefix = QUEUE_PREFIX))
+          setMaxInstancesForQueue(2)
+        }
+      }
+      .setMaxAttempts(3)
+      .build(),
+    recipientIds = recipientIds.toMutableSet(),
+    skipDebounce = skipDebounce
+  )
+
+  override fun serialize(): ByteArray? {
+    return JsonJobData.Builder()
+      .putStringListAsArray(KEY_RECIPIENTS, recipientIds.map { it.serialize() })
+      .putBoolean(KEY_SKIP_DEBOUNCE, skipDebounce)
+      .serialize()
+  }
+
+  override fun getFactoryKey(): String = KEY
+
+  override fun shouldTrace(): Boolean = true
+
+  @Throws(IOException::class, RetryLaterException::class)
+  public override fun onRun() {
+    if (!SignalStore.account.isRegistered) {
+      Log.w(TAG, "Unregistered. Skipping.")
+      return
+    }
+
+    val stopwatch = Stopwatch("RetrieveProfile")
+
+    val debounceThreshold = if (skipDebounce) null else System.currentTimeMillis().milliseconds - PROFILE_FETCH_DEBOUNCE_TIME
+    val recipientsToFetch = SignalDatabase
+      .recipients
+      .getRecordsForProfileFetch(recipientIds, debounceThreshold)
+      .map { RecipientCreator.forRecord(context, it) }
+
+    stopwatch.split("resolve")
+
+    if (recipientsToFetch.isEmpty()) {
+      Log.i(TAG, "All ${recipientIds.size} recipients have been fetched recently (within $PROFILE_FETCH_DEBOUNCE_TIME) or are not eligible. Skipping network requests.")
+      return
+    }
+
+    if (recipientsToFetch.size < recipientIds.size) {
+      Log.i(TAG, "Fetching ${recipientsToFetch.size} of ${recipientIds.size} recipients (${recipientIds.size - recipientsToFetch.size} were ineligible or fetched recently)")
+    }
+
+    val fetchingRecipientIds = recipientsToFetch.map { it.id }.toSet()
+    val recipientsById: Map<RecipientId, Recipient> = recipientsToFetch.associateBy { it.id }
+
+    val requests: List<ProfileFetchRequest<RecipientId>> = recipientsToFetch
+      .map { recipient ->
+        ProfileFetchRequest(
+          id = recipient.id,
+          serviceId = recipient.requireServiceId(),
+          profileKey = recipient.profileKey?.let { ProfileKey(it) },
+          sealedSenderAccess = SealedSenderAccessUtil.getSealedSenderAccessFor(recipient),
+          fetchExpiringCredential = !ExpiringProfileCredentialUtil.isValid(recipient.expiringProfileKeyCredential)
+        )
+      }
+
+    stopwatch.split("requests")
+
+    val response: ProfileFetchResult<RecipientId> = runBlocking {
+      withContext(Dispatchers.IO) {
+        ProfileRepository(SignalNetwork.profile).fetchProfiles(requests)
+      }
+    }
+    stopwatch.split("responses")
+
+    val localRecords = SignalDatabase.recipients.getExistingRecords(fetchingRecipientIds)
+    Log.d(TAG, "Fetched ${localRecords.size} existing records.")
+    stopwatch.split("disk-fetch")
+
+    val successIds: Set<RecipientId> = response.successes.map { it.id }.toSet()
+    val newlyRegisteredIds: Set<RecipientId> = response.successes
+      .mapNotNull { recipientsById[it.id] }
+      .filterNot { it.isRegistered }
+      .map { it.id }
+      .toSet()
+
+    val updatedProfiles = response.successes
+      .filter { idProfilePair: IdProfilePair<RecipientId> ->
+        val recipientToUpdate: Recipient = recipientsById[idProfilePair.id]!!
+        val localRecipientRecord: RecipientRecord = localRecords[recipientToUpdate.id] ?: return@filter true
+        val (remoteProfile, remoteCredential) = idProfilePair.profileWithCredential
+
+        return@filter try {
+          isUpdated(localRecipientRecord, remoteProfile, remoteCredential)
+        } catch (e: InvalidCiphertextException) {
+          Log.w(TAG, "Could not compare new and old profiles.", e)
+          true
+        } catch (e: IOException) {
+          Log.w(TAG, "Could not compare new and old profiles.", e)
+          true
+        }
+      }
+      .toList()
+    stopwatch.split("filter")
+
+    Log.d(TAG, "Committing updates to " + updatedProfiles.size + " of " + response.successes.size + " retrieved profiles.")
+    val avatarJobs = mutableListOf<RetrieveProfileAvatarJob>()
+    updatedProfiles.chunked(150).forEach { list: List<IdProfilePair<RecipientId>> ->
+      SignalDatabase.runInTransaction {
+        for (idProfilePair in list) {
+          process(recipientsById[idProfilePair.id]!!, idProfilePair.profileWithCredential, avatarJobs)
+        }
+      }
+    }
+    stopwatch.split("process")
+
+    SignalDatabase.recipients.markProfilesFetched(successIds, System.currentTimeMillis())
+    stopwatch.split("mark-fetched")
+
+    if (newlyRegisteredIds.isNotEmpty()) {
+      Log.i(TAG, "Marking " + newlyRegisteredIds.size + " users as registered.")
+      SignalDatabase.recipients.bulkUpdatedRegisteredStatus(newlyRegisteredIds, emptySet())
+    }
+    if (response.unregistered.isNotEmpty()) {
+      Log.i(TAG, "Marking ${response.unregistered.size} users as unregistered.")
+      SignalDatabase.recipients.markUnregistered(response.unregistered)
+    }
+    stopwatch.split("registered-update")
+
+    if (response.verificationFailures.isNotEmpty()) {
+      Log.i(TAG, "Removing profile keys for ${response.verificationFailures.size} users due to verification errors")
+      for (recipientId in response.verificationFailures) {
+        SignalDatabase.recipients.clearProfileKeyData(recipientId)
+      }
+    }
+    stopwatch.split("verification-update")
+
+    for (idProfilePair in response.successes) {
+      setIdentityKey(recipientsById[idProfilePair.id]!!, idProfilePair.profileWithCredential.profile.identityKey)
+    }
+    stopwatch.split("identityKeys")
+
+    val keyCount = response.successes.mapNotNull { recipientsById[it.id] }.mapNotNull { it.profileKey }.count()
+
+    Log.d(TAG, "Started with ${recipientIds.size} recipient(s). Of those, ${recipientsToFetch.size} were outside the cache period. Found ${response.successes.size} profile(s), and had keys for $keyCount of them. Will retry ${response.retryableFailures.size}.")
+    stopwatch.stop(TAG)
+
+    if (avatarJobs.isNotEmpty()) {
+      AppDependencies.jobManager.addAll(avatarJobs)
+    }
+
+    if (updatedProfiles.isNotEmpty()) {
+      StorageSyncHelper.scheduleSyncForDataChange()
+    }
+
+    recipientIds.clear()
+    recipientIds.addAll(response.retryableFailures)
+
+    if (recipientIds.isNotEmpty()) {
+      throw RetryLaterException(response.retryAfter?.inWholeMilliseconds ?: defaultBackoff())
+    }
+  }
+
+  public override fun onShouldRetry(e: Exception): Boolean {
+    return e is RetryLaterException
+  }
+
+  override fun getNextRunAttemptBackoff(pastAttemptCount: Int, exception: Exception): Long {
+    return if (exception is RetryLaterException) {
+      exception.backoff
+    } else {
+      super.getNextRunAttemptBackoff(pastAttemptCount, exception)
+    }
+  }
+
+  override fun onFailure() {}
+
+  @Throws(InvalidCiphertextException::class, IOException::class)
+  private fun isUpdated(localRecipientRecord: RecipientRecord, remoteProfile: SignalServiceProfile, remoteExpiringProfileKeyCredential: ExpiringProfileKeyCredential?): Boolean {
+    if (localRecipientRecord.signalProfileAvatar != remoteProfile.avatar) {
+      return true
+    }
+
+    if (localRecipientRecord.badges != remoteProfile.badges.map { Badges.fromServiceBadge(it) }) {
+      return true
+    }
+
+    if (localRecipientRecord.capabilities.rawBits != maskCapabilitiesToLong(remoteProfile.capabilities)) {
+      return true
+    }
+
+    val profileKey = ProfileKeyUtil.profileKeyOrNull(localRecipientRecord.profileKey)
+    val accessMode = deriveUnidentifiedAccessMode(
+      profileKey = profileKey,
+      unidentifiedAccessVerifier = remoteProfile.unidentifiedAccess,
+      unrestrictedUnidentifiedAccess = remoteProfile.isUnrestrictedUnidentifiedAccess
+    )
+
+    if (localRecipientRecord.sealedSenderAccessMode != accessMode) {
+      return true
+    }
+
+    if (profileKey == null) {
+      return false
+    }
+
+    val newProfileName = ProfileName.fromSerialized(ProfileUtil.decryptString(profileKey, remoteProfile.name))
+    if (localRecipientRecord.signalProfileName != newProfileName) {
+      return true
+    }
+
+    if (localRecipientRecord.about != ProfileUtil.decryptString(profileKey, remoteProfile.about)) {
+      return true
+    }
+
+    if (remoteExpiringProfileKeyCredential != null && localRecipientRecord.expiringProfileKeyCredential != remoteExpiringProfileKeyCredential) {
+      return true
+    }
+
+    val remotePhoneNumberSharing = ProfileUtil.decryptBoolean(profileKey, remoteProfile.phoneNumberSharing)
+      .map { value: Boolean -> if (value) PhoneNumberSharingState.ENABLED else PhoneNumberSharingState.DISABLED }
+      .orElse(PhoneNumberSharingState.UNKNOWN)
+
+    if (localRecipientRecord.phoneNumberSharing != remotePhoneNumberSharing) {
+      return true
+    }
+
+    return false
+  }
+
+  private fun process(recipient: Recipient, profileAndCredential: SignalServiceProfileWithCredential, avatarJobs: MutableList<RetrieveProfileAvatarJob>) {
+    val (profile, expiringCredential) = profileAndCredential
+    val recipientProfileKey = ProfileKeyUtil.profileKeyOrNull(recipient.profileKey)
+
+    val badges = profile.badges?.map { Badges.fromServiceBadge(it) }
+    val accessMode = deriveUnidentifiedAccessMode(recipientProfileKey, profile.unidentifiedAccess, profile.isUnrestrictedUnidentifiedAccess)
+
+    if (badges != null && badges.size != recipient.badges.size) {
+      Log.i(TAG, "Likely change in badges for ${recipient.id}. Going from ${recipient.badges.size} badge(s) to ${badges.size}.")
+    }
+
+    if (accessMode != recipient.sealedSenderAccessMode) {
+      when {
+        accessMode === SealedSenderAccessMode.UNRESTRICTED -> Log.i(TAG, "Marking recipient UD status as unrestricted.")
+        recipientProfileKey == null || profile.unidentifiedAccess == null -> Log.i(TAG, "Marking recipient UD status as disabled.")
+        else -> Log.i(TAG, "Marking recipient UD status as " + accessMode.name + " after verification.")
+      }
+    }
+
+    if (recipientProfileKey != null) {
+      val profileNameResult = resolveProfileName(recipient, recipientProfileKey, profile.name)
+      val aboutResult = resolveProfileAbout(recipientProfileKey, profile.about, profile.aboutEmoji)
+      val phoneNumberSharing = resolvePhoneNumberSharing(recipient, recipientProfileKey, profile.phoneNumberSharing)
+      val clearUsername = recipient.hasNonUsernameDisplayName(context) || profileNameResult?.changed == true
+
+      val update = RecipientTable.ProfileUpdate(
+        profileName = if (profileNameResult?.changed == true) profileNameResult.remoteProfileName else null,
+        about = aboutResult,
+        badges = badges,
+        capabilities = profile.capabilities,
+        sealedSenderAccessMode = if (accessMode != recipient.sealedSenderAccessMode) accessMode else null,
+        phoneNumberSharing = phoneNumberSharing,
+        expiringProfileKeyCredential = expiringCredential?.let { Pair(recipientProfileKey, it) },
+        clearUsername = clearUsername
+      )
+
+      SignalDatabase.recipients.applyProfileUpdate(recipient.id, update)
+      profileNameResult?.let { handleProfileNameSideEffects(recipient, it) }
+    } else {
+      val update = RecipientTable.ProfileUpdate(
+        badges = badges,
+        capabilities = profile.capabilities,
+        sealedSenderAccessMode = if (accessMode != recipient.sealedSenderAccessMode) accessMode else null
+      )
+
+      SignalDatabase.recipients.applyProfileUpdate(recipient.id, update)
+    }
+
+    if (recipient.profileKey != null && profile.avatar != recipient.profileAvatar) {
+      avatarJobs += RetrieveProfileAvatarJob(recipient, profile.avatar)
+    }
+  }
+
+  private fun setIdentityKey(recipient: Recipient, identityKeyValue: String?) {
+    try {
+      if (identityKeyValue.isNullOrBlank()) {
+        Log.w(TAG, "Identity key is missing on profile!")
+        return
+      }
+
+      val identityKey = IdentityKey(decode(identityKeyValue), 0)
+      val existingIdentityKey = AppDependencies.protocolStore.aci().identities().getIdentityRecord(recipient)
+        .map { (_, identityKey): IdentityRecord -> identityKey }
+        .orElse(null)
+
+      if (existingIdentityKey == null) {
+        Log.w(TAG, "Still first use for ${recipient.id}")
+        return
+      }
+
+      if (existingIdentityKey == identityKey) {
+        return
+      }
+
+      IdentityUtil.saveIdentity(recipient.requireServiceId().toString(), identityKey)
+    } catch (e: InvalidKeyException) {
+      Log.w(TAG, e)
+    } catch (e: IOException) {
+      Log.w(TAG, e)
+    }
+  }
+
+  private fun deriveUnidentifiedAccessMode(profileKey: ProfileKey?, unidentifiedAccessVerifier: String?, unrestrictedUnidentifiedAccess: Boolean): SealedSenderAccessMode {
+    return if (unrestrictedUnidentifiedAccess && unidentifiedAccessVerifier != null) {
+      SealedSenderAccessMode.UNRESTRICTED
+    } else if (profileKey == null || unidentifiedAccessVerifier == null) {
+      SealedSenderAccessMode.DISABLED
+    } else {
+      val profileCipher = ProfileCipher(profileKey)
+      val verifiedUnidentifiedAccess: Boolean = try {
+        profileCipher.verifyUnidentifiedAccess(decode(unidentifiedAccessVerifier))
+      } catch (e: IOException) {
+        Log.w(TAG, e)
+        false
+      }
+
+      if (verifiedUnidentifiedAccess) {
+        SealedSenderAccessMode.ENABLED
+      } else {
+        SealedSenderAccessMode.DISABLED
+      }
+    }
+  }
+
+  private fun resolveProfileName(recipient: Recipient, profileKey: ProfileKey, encryptedProfileName: String?): ProfileNameResult? {
+    try {
+      val plaintextProfileName = Util.emptyIfNull(ProfileUtil.decryptString(profileKey, encryptedProfileName))
+
+      if (plaintextProfileName.isBlank()) {
+        Log.w(TAG, "No name set on the profile for ${recipient.id} -- Leaving it alone")
+        return null
+      }
+
+      val remoteProfileName = ProfileName.fromSerialized(plaintextProfileName)
+      val localProfileName = recipient.profileName
+      val changed = remoteProfileName != localProfileName
+
+      val learnedFirstTime = localProfileName.isEmpty &&
+        !recipient.isSystemContact &&
+        recipient.isProfileSharing &&
+        !recipient.isGroup &&
+        !recipient.isSelf
+
+      var username: String? = null
+      var e164: String? = null
+      if (learnedFirstTime) {
+        username = SignalDatabase.recipients.getUsername(recipient.id)
+        e164 = if (username == null) SignalDatabase.recipients.getE164sForIds(listOf(recipient.id)).firstOrNull() else null
+      }
+
+      return if (changed) {
+        ProfileNameResult(remoteProfileName, localProfileName, changed = true, learnedFirstTime, username, e164)
+      } else if (learnedFirstTime) {
+        ProfileNameResult(remoteProfileName, localProfileName, changed = false, learnedFirstTime, username, e164)
+      } else {
+        null
+      }
+    } catch (e: InvalidCiphertextException) {
+      Log.w(TAG, "Bad profile key for ${recipient.id}")
+    } catch (e: IOException) {
+      Log.w(TAG, e)
+    }
+    return null
+  }
+
+  private fun resolveProfileAbout(profileKey: ProfileKey, encryptedAbout: String?, encryptedEmoji: String?): Pair<String?, String?>? {
+    try {
+      val plaintextAbout = ProfileUtil.decryptString(profileKey, encryptedAbout)
+      val plaintextEmoji = ProfileUtil.decryptString(profileKey, encryptedEmoji)
+      return Pair(plaintextAbout, plaintextEmoji)
+    } catch (e: InvalidCiphertextException) {
+      Log.w(TAG, e)
+    } catch (e: IOException) {
+      Log.w(TAG, e)
+    }
+    return null
+  }
+
+  private fun resolvePhoneNumberSharing(recipient: Recipient, profileKey: ProfileKey, phoneNumberSharing: String?): PhoneNumberSharingState? {
+    try {
+      val remotePhoneNumberSharing = ProfileUtil.decryptBoolean(profileKey, phoneNumberSharing)
+        .map { value: Boolean -> if (value) PhoneNumberSharingState.ENABLED else PhoneNumberSharingState.DISABLED }
+        .orElse(PhoneNumberSharingState.UNKNOWN)
+
+      return if (recipient.phoneNumberSharing !== remotePhoneNumberSharing) {
+        Log.i(TAG, "Updating phone number sharing state for " + recipient.id + " to " + remotePhoneNumberSharing)
+        remotePhoneNumberSharing
+      } else {
+        null
+      }
+    } catch (e: InvalidCiphertextException) {
+      Log.w(TAG, "Failed to set the phone number sharing setting!", e)
+    } catch (e: IOException) {
+      Log.w(TAG, "Failed to set the phone number sharing setting!", e)
+    }
+    return null
+  }
+
+  private fun handleProfileNameSideEffects(recipient: Recipient, result: ProfileNameResult) {
+    if (result.learnedFirstTime) {
+      if (result.username != null || result.e164 != null) {
+        Log.i(TAG, "Learned profile name for first time, inserting event")
+        SignalDatabase.messages.insertLearnedProfileNameChangeMessage(recipient, result.e164, result.username)
+      } else {
+        Log.w(TAG, "Learned profile name for first time, but do not have username or e164 for ${recipient.id}")
+      }
+    }
+
+    if (result.changed) {
+      Log.i(TAG, "Profile name updated. Writing new value.")
+
+      val remoteDisplayName = result.remoteProfileName.toString()
+      val localDisplayName = result.localProfileName.toString()
+      val writeChangeEvent = !recipient.isBlocked &&
+        !recipient.isGroup &&
+        !recipient.isSelf &&
+        localDisplayName.isNotEmpty() &&
+        remoteDisplayName != localDisplayName
+
+      if (writeChangeEvent) {
+        Log.i(TAG, "Writing a profile name change event for ${recipient.id}")
+        SignalDatabase.messages.insertProfileNameChangeMessages(recipient, remoteDisplayName, localDisplayName)
+      } else {
+        Log.i(TAG, "Name changed, but wasn't relevant to write an event. blocked: ${recipient.isBlocked}, group: ${recipient.isGroup}, self: ${recipient.isSelf}, firstSet: ${localDisplayName.isEmpty()}, displayChange: ${remoteDisplayName != localDisplayName}")
+      }
+
+      val individualCollisionsEnabled = false
+      if (individualCollisionsEnabled &&
+        recipient.isIndividual &&
+        !recipient.isSystemContact &&
+        recipient.nickname.isEmpty &&
+        !recipient.isProfileSharing &&
+        !recipient.isBlocked &&
+        !recipient.isSelf &&
+        !recipient.isHidden
+      ) {
+        val threadId = SignalDatabase.threads.getThreadIdFor(recipient.id)
+        if (threadId != null && !RecipientUtil.isMessageRequestAccepted(threadId, recipient)) {
+          SignalDatabase.nameCollisions.handleIndividualNameCollision(recipient.id)
+        }
+      }
+
+      if (writeChangeEvent || localDisplayName.isEmpty()) {
+        AppDependencies.databaseObserver.notifyConversationListListeners()
+        val threadId = SignalDatabase.threads.getThreadIdFor(recipient.id)
+        if (threadId != null) {
+          SignalDatabase.runPostSuccessfulTransaction {
+            AppDependencies.messageNotifier.updateNotification(context, forConversation(threadId))
+          }
+        }
+      }
+    }
+  }
+
+  private data class ProfileNameResult(
+    val remoteProfileName: ProfileName,
+    val localProfileName: ProfileName,
+    val changed: Boolean,
+    val learnedFirstTime: Boolean,
+    val username: String?,
+    val e164: String?
+  )
+
+  class Factory : Job.Factory<RetrieveProfileJob?> {
+    override fun create(parameters: Parameters, serializedData: ByteArray?): RetrieveProfileJob {
+      val data = JsonJobData.deserialize(serializedData)
+      val recipientIds: MutableSet<RecipientId> = data.getStringArray(KEY_RECIPIENTS).map { RecipientId.from(it) }.toMutableSet()
+      val skipDebounce: Boolean = data.getBooleanOrDefault(KEY_SKIP_DEBOUNCE, false)
+
+      return RetrieveProfileJob(parameters, recipientIds, skipDebounce)
+    }
+  }
+
+  companion object {
+    const val KEY = "RetrieveProfileJob"
+    private val TAG = Log.tag(RetrieveProfileJob::class.java)
+    private const val KEY_RECIPIENTS = "recipients"
+    private const val KEY_SKIP_DEBOUNCE = "skip_debounce"
+    private const val QUEUE_PREFIX = "RetrieveProfileJob_"
+
+    private val PROFILE_FETCH_DEBOUNCE_TIME = 5.minutes
+
+    /**
+     * Submits the necessary job to refresh the profile of the requested recipient. Works for any
+     * RecipientId, including individuals, groups, or yourself.
+     *
+     * May not enqueue any jobs in certain circumstances. In particular, if the recipient is a group
+     * with no other members, then no job will be enqueued.
+     */
+    @JvmStatic
+    @WorkerThread
+    fun enqueue(recipientId: RecipientId, skipDebounce: Boolean) {
+      forRecipients(setOf(recipientId), skipDebounce).firstOrNull()?.let { job ->
+        AppDependencies.jobManager.add(job)
+      }
+    }
+
+    /**
+     * Submits the necessary jobs to refresh the profiles of the requested recipients. Works for any
+     * RecipientIds, including individuals, groups, or yourself.
+     */
+    @JvmStatic
+    @WorkerThread
+    fun enqueue(recipientIds: Set<RecipientId>, skipDebounce: Boolean) {
+      val jobManager = AppDependencies.jobManager
+      for (job in forRecipients(recipientIds, skipDebounce)) {
+        jobManager.add(job)
+      }
+    }
+
+    /**
+     * Works for any RecipientId, whether it's an individual, group, or yourself.
+     *
+     * @return A list of length 2 or less. Two iff you are in the recipients. Could be empty for groups with no other members.
+     */
+    @JvmStatic
+    @WorkerThread
+    fun forRecipients(recipientIds: Set<RecipientId>, skipDebounce: Boolean = false): List<Job> {
+      val combined: MutableSet<RecipientId> = HashSet(recipientIds.size)
+      var includeSelf = false
+
+      for (recipientId in recipientIds) {
+        val recipient = Recipient.resolved(recipientId)
+        when {
+          recipient.isSelf -> includeSelf = true
+          recipient.isGroup -> combined += SignalDatabase.groups.getGroupMemberIds(recipient.requireGroupId(), GroupTable.MemberSet.FULL_MEMBERS_EXCLUDING_SELF)
+          else -> combined.add(recipientId)
+        }
+      }
+
+      return ArrayList<Job>(2).apply {
+        if (includeSelf) {
+          add(RefreshOwnProfileJob())
+        }
+        if (combined.isNotEmpty()) {
+          add(RetrieveProfileJob(combined, skipDebounce))
+        }
+      }
+    }
+
+    /**
+     * Will fetch some profiles to ensure we're decently up-to-date if we haven't done so within a
+     * certain time period.
+     */
+    @JvmStatic
+    fun enqueueRoutineFetchIfNecessary() {
+      if (!SignalStore.registration.isRegistrationComplete || !SignalStore.account.isRegistered || SignalStore.account.aci == null) {
+        Log.i(TAG, "Registration not complete. Skipping.")
+        return
+      }
+
+      val timeSinceRefresh = System.currentTimeMillis() - SignalStore.misc.lastProfileRefreshTime
+      if (timeSinceRefresh < TimeUnit.HOURS.toMillis(12)) {
+        Log.i(TAG, "Too soon to refresh. Did the last refresh $timeSinceRefresh ms ago.")
+        return
+      }
+
+      SignalExecutors.BOUNDED.execute {
+        val current = System.currentTimeMillis()
+        val ids: List<RecipientId> = SignalDatabase.recipients.getRecipientsForRoutineProfileFetch(
+          lastInteractionThreshold = current - TimeUnit.DAYS.toMillis(30),
+          lastProfileFetchThreshold = current - TimeUnit.DAYS.toMillis(1),
+          limit = 50
+        ) + Recipient.self().id
+
+        if (ids.isNotEmpty()) {
+          Log.i(TAG, "Optimistically refreshing ${ids.size} eligible recipient(s).")
+          enqueue(ids.toSet(), false)
+        } else {
+          Log.i(TAG, "No recipients to refresh.")
+        }
+
+        SignalStore.misc.lastProfileRefreshTime = System.currentTimeMillis()
+      }
+    }
+  }
+}

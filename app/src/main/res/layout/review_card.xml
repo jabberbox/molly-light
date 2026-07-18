@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="@dimen/gutter"
+    android:layout_marginBottom="16dp"
+    android:background="@drawable/review_card_outline">
+
+    <View
+        android:id="@+id/card_tap_target"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:minHeight="52dp"
+        app:layout_constraintBottom_toBottomOf="@id/card_action_button_barrier"
+        app:layout_constraintEnd_toEndOf="@id/card_name"
+        app:layout_constraintStart_toStartOf="@id/card_avatar"
+        app:layout_constraintTop_toTopOf="@id/card_avatar" />
+
+
+    <org.thoughtcrime.securesms.components.AvatarImageView
+        android:id="@+id/card_avatar"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_goneMarginTop="16dp"
+        tools:src="@drawable/ic_person_large" />
+
+    <TextView
+        android:id="@+id/card_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="16dp"
+        android:textAppearance="@style/Signal.Text.TitleMedium"
+        app:layout_constraintBottom_toTopOf="@id/card_subtext_line1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/card_avatar"
+        app:layout_constraintTop_toTopOf="@id/card_avatar"
+        app:layout_constraintVertical_bias="0.0"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="Maya Johnson" />
+
+    <TextView
+        android:id="@+id/card_subtext_line1"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+        android:textAppearance="@style/Signal.Text.BodyMedium"
+        android:textColor="?attr/signal_text_secondary"
+        app:layout_constraintBottom_toTopOf="@id/card_subtext_line2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/card_subtext_icon1"
+        app:layout_constraintTop_toBottomOf="@id/card_name"
+        tools:text="Maya recently changed their profile name from Alice Chen to Maya Johnson" />
+
+    <ImageView
+        android:id="@+id/card_subtext_icon1"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="2dp"
+        android:importantForAccessibility="no"
+        app:layout_constraintStart_toEndOf="@id/card_avatar"
+        app:layout_constraintTop_toTopOf="@id/card_subtext_line1"
+        app:tint="?attr/colorOnSurface"
+        tools:srcCompat="@drawable/symbol_person_compact_16" />
+
+    <TextView
+        android:id="@+id/card_subtext_line2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+        android:textAppearance="@style/Signal.Text.BodyMedium"
+        android:textColor="?attr/signal_text_secondary"
+        app:layout_constraintBottom_toTopOf="@+id/card_subtext_line3"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/card_subtext_icon2"
+        app:layout_constraintTop_toBottomOf="@id/card_subtext_line1"
+        tools:text="No other groups in common" />
+
+    <ImageView
+        android:id="@+id/card_subtext_icon2"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="2dp"
+        android:importantForAccessibility="no"
+        app:layout_constraintStart_toEndOf="@id/card_avatar"
+        app:layout_constraintTop_toTopOf="@id/card_subtext_line2"
+        app:tint="?attr/colorOnSurface"
+        tools:srcCompat="@drawable/symbol_group_compact_16" />
+
+    <TextView
+        android:id="@+id/card_subtext_line3"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+        android:textAppearance="@style/Signal.Text.BodyMedium"
+        android:textColor="?attr/signal_text_secondary"
+        app:layout_constraintBottom_toTopOf="@+id/card_subtext_line4"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/card_subtext_icon3"
+        app:layout_constraintTop_toBottomOf="@id/card_subtext_line2"
+        tools:text="No other groups in common" />
+
+    <ImageView
+        android:id="@+id/card_subtext_icon3"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="2dp"
+        android:importantForAccessibility="no"
+        app:layout_constraintStart_toEndOf="@id/card_avatar"
+        app:layout_constraintTop_toTopOf="@id/card_subtext_line3"
+        app:tint="?attr/colorOnSurface"
+        tools:srcCompat="@drawable/symbol_group_24" />
+
+    <TextView
+        android:id="@+id/card_subtext_line4"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+        android:textAppearance="@style/Signal.Text.BodyMedium"
+        android:textColor="?attr/signal_text_secondary"
+        app:layout_constraintBottom_toTopOf="@+id/card_action_button_barrier"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/card_subtext_icon4"
+        app:layout_constraintTop_toBottomOf="@id/card_subtext_line3"
+        tools:text="No other groups in common" />
+
+    <ImageView
+        android:id="@+id/card_subtext_icon4"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="2dp"
+        android:importantForAccessibility="no"
+        app:layout_constraintStart_toEndOf="@id/card_avatar"
+        app:layout_constraintTop_toTopOf="@id/card_subtext_line4"
+        app:tint="?attr/colorOnSurface"
+        tools:srcCompat="@drawable/symbol_group_24" />
+
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/card_action_button_barrier"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:barrierDirection="top"
+        app:constraint_referenced_ids="card_primary_action_button,card_secondary_action_button" />
+
+    <Space
+        app:layout_constraintTop_toBottomOf="@id/card_subtext_line4"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_width="match_parent"
+        android:layout_height="16dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/card_primary_action_button"
+        style="@style/Signal.Widget.Button.Large.Secondary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginBottom="6dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/card_subtext_line4"
+        app:layout_constraintVertical_bias="1.0"
+        tools:text="@string/ReviewCard__block" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/card_secondary_action_button"
+        style="@style/Signal.Widget.Button.Large.Secondary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/card_primary_action_button"
+        app:layout_constraintTop_toBottomOf="@id/card_subtext_line4"
+        app:layout_constraintVertical_bias="1.0"
+        tools:text="@string/ReviewCard__delete" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

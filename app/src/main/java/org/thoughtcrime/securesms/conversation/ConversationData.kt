@@ -1,0 +1,51 @@
+package org.thoughtcrime.securesms.conversation
+
+import org.signal.core.models.ServiceId
+import org.thoughtcrime.securesms.recipients.Recipient
+
+/**
+ * Represents metadata about a conversation.
+ */
+data class ConversationData(
+  val threadRecipient: Recipient,
+  val threadId: Long,
+  val firstUnreadId: Long,
+  val firstUnreadPosition: Int,
+  val lastScrolledPosition: Int,
+  val jumpToPosition: Int,
+  val threadSize: Int,
+  val messageRequestData: MessageRequestData,
+  @get:JvmName("showUniversalExpireTimerMessage") val showUniversalExpireTimerMessage: Boolean,
+  val unreadCount: Int,
+  val groupMemberAcis: List<ServiceId>
+) {
+
+  fun shouldJumpToMessage(): Boolean {
+    return jumpToPosition >= 0
+  }
+
+  fun shouldScrollToFirstUnread(): Boolean {
+    return firstUnreadPosition > 0
+  }
+
+  fun getStartPosition(): Int {
+    return when {
+      shouldJumpToMessage() -> jumpToPosition
+      messageRequestData.isMessageRequestAccepted && shouldScrollToFirstUnread() -> firstUnreadPosition
+      messageRequestData.isMessageRequestAccepted -> lastScrolledPosition
+      else -> threadSize
+    }
+  }
+
+  data class MessageRequestData @JvmOverloads constructor(
+    val isMessageRequestAccepted: Boolean,
+    val isHidden: Boolean,
+    private val groupsInCommon: Boolean = false,
+    val isGroup: Boolean = false
+  ) {
+
+    fun includeWarningUpdateMessage(): Boolean {
+      return !isMessageRequestAccepted && !groupsInCommon && !isHidden
+    }
+  }
+}

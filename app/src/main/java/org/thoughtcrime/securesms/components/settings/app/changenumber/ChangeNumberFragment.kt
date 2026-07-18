@@ -1,0 +1,143 @@
+/*
+ * Copyright 2025 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+package org.thoughtcrime.securesms.components.settings.app.changenumber
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import androidx.navigation.fragment.findNavController
+import org.signal.core.ui.compose.Buttons
+import org.signal.core.ui.compose.ComposeFragment
+import org.signal.core.ui.compose.DayNightPreviews
+import org.signal.core.ui.compose.Previews
+import org.signal.core.ui.compose.Scaffolds
+import org.thoughtcrime.securesms.R
+import org.thoughtcrime.securesms.keyvalue.SignalStore
+import org.thoughtcrime.securesms.util.RemoteConfig
+import org.thoughtcrime.securesms.util.navigation.safeNavigate
+import kotlin.time.Duration.Companion.milliseconds
+
+class ChangeNumberFragment : ComposeFragment() {
+
+  @Composable
+  override fun FragmentContent() {
+    val navController: NavController = remember { findNavController() }
+    ChangeNumberScreen(
+      onNavigationIconClick = {
+        navController.popBackStack()
+      },
+      onContinueClick = {
+        val remainingWaitSeconds = remainingPostRegistrationWaitSeconds()
+        if (remainingWaitSeconds > 0) {
+          ChangeNumberPostRegistrationWaitSheet.show(parentFragmentManager, remainingWaitSeconds)
+        } else {
+          navController.safeNavigate(ChangeNumberFragmentDirections.actionChangePhoneNumberFragmentToEnterPhoneNumberChangeFragment())
+        }
+      }
+    )
+  }
+
+  private fun remainingPostRegistrationWaitSeconds(): Long {
+    val registeredAt = SignalStore.account.registeredAtTimestamp
+    if (registeredAt <= 0) {
+      return 0
+    }
+    val waitingPeriodSeconds = RemoteConfig.changeNumberPostRegistrationWaitingPeriodSeconds
+    val elapsedSeconds = (System.currentTimeMillis() - registeredAt).milliseconds.inWholeSeconds
+    return (waitingPeriodSeconds - elapsedSeconds).coerceAtLeast(0)
+  }
+}
+
+@Composable
+fun ChangeNumberScreen(
+  onNavigationIconClick: () -> Unit,
+  onContinueClick: () -> Unit
+) {
+  Scaffolds.Settings(
+    title = "",
+    onNavigationClick = onNavigationIconClick,
+    navigationIcon = ImageVector.vectorResource(id = R.drawable.ic_arrow_left_24),
+    navigationContentDescription = stringResource(id = R.string.Material3SearchToolbar__close)
+  ) {
+    val scrollState = rememberScrollState()
+    Column(
+      horizontalAlignment = Alignment.CenterHorizontally,
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(it)
+        .verticalScroll(scrollState)
+        .padding(horizontal = 32.dp)
+    ) {
+      Image(
+        painter = painterResource(id = R.drawable.change_number),
+        contentDescription = null,
+        modifier = Modifier
+          .padding(top = 20.dp)
+      )
+
+      Text(
+        text = stringResource(id = R.string.AccountSettingsFragment__change_phone_number),
+        style = MaterialTheme.typography.headlineMedium,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(top = 24.dp)
+      )
+
+      Text(
+        text = stringResource(id = R.string.ChangeNumberFragment__use_this_to_change_your_current_phone_number_to_a_new_phone_number),
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(top = 12.dp)
+      )
+
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .weight(1f)
+          .padding(bottom = 32.dp)
+      ) {
+        Buttons.LargePrimary(
+          onClick = onContinueClick,
+          modifier = Modifier.fillMaxWidth()
+            .align(Alignment.BottomCenter)
+        ) {
+          Text(
+            text = stringResource(id = R.string.ChangeNumberFragment__continue)
+          )
+        }
+      }
+    }
+  }
+}
+
+@DayNightPreviews
+@Composable
+private fun MessageBackupsEducationSheetPreview() {
+  Previews.Preview {
+    ChangeNumberScreen(
+      onNavigationIconClick = {},
+      onContinueClick = {}
+    )
+  }
+}

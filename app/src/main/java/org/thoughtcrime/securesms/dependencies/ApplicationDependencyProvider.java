@@ -1,0 +1,678 @@
+package org.thoughtcrime.securesms.dependencies;
+
+import android.annotation.SuppressLint;
+import android.app.Application;
+import android.os.Handler;
+import android.os.HandlerThread;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
+import androidx.media3.exoplayer.ExoPlayer;
+
+import org.jetbrains.annotations.NotNull;
+import org.signal.billing.BillingFactory;
+import org.signal.core.models.ServiceId.ACI;
+import org.signal.core.models.ServiceId.PNI;
+import org.signal.core.util.AppForegroundObserver;
+import org.signal.core.util.ByteUnit;
+import org.signal.core.util.SleepTimer;
+import org.signal.core.util.ThreadUtil;
+import org.signal.core.util.UptimeSleepTimer;
+import org.signal.core.util.billing.BillingApi;
+import org.signal.core.util.concurrent.DeadlockDetector;
+import org.signal.core.util.concurrent.SignalExecutors;
+import org.signal.core.util.contentproviders.BlobProvider;
+import org.signal.donations.permits.DonationPermitsRepository;
+import org.signal.libsignal.net.Network;
+import org.signal.libsignal.protocol.SignalProtocolAddress;
+import org.signal.libsignal.zkgroup.GenericServerPublicParams;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerPublicParams;
+import org.signal.libsignal.zkgroup.profiles.ClientZkProfileOperations;
+import org.signal.libsignal.zkgroup.receipts.ClientZkReceiptOperations;
+import org.signal.network.api.ArchiveApi;
+import org.signal.network.api.AttachmentApi;
+import org.signal.network.api.CallingApi;
+import org.signal.network.api.CdsApi;
+import org.signal.network.api.CertificateApi;
+import org.signal.network.api.KeysApiV2;
+import org.signal.network.api.LinkDeviceApi;
+import org.signal.network.api.MessageApiV2;
+import org.signal.network.api.PaymentsApi;
+import org.signal.network.api.ProvisioningApi;
+import org.signal.network.api.RateLimitChallengeApi;
+import org.signal.network.api.RemoteConfigApi;
+import org.signal.network.api.SvrBApi;
+import org.signal.network.api.UsernameApi;
+import org.signal.network.rest.SignalRestClient;
+import org.signal.network.service.MessageService;
+import org.signal.video.exo.ExoPlayerPool;
+import org.thoughtcrime.securesms.BuildConfig;
+import org.thoughtcrime.securesms.components.TypingStatusRepository;
+import org.thoughtcrime.securesms.components.TypingStatusSender;
+import org.thoughtcrime.securesms.components.settings.app.subscription.permits.DonationPermits;
+import org.thoughtcrime.securesms.components.settings.app.subscription.permits.NetworkDonationPermitIssuer;
+import org.thoughtcrime.securesms.crypto.AppAttachmentSecretStore;
+import org.thoughtcrime.securesms.crypto.ReentrantSessionLock;
+import org.thoughtcrime.securesms.crypto.storage.SignalBaseIdentityKeyStore;
+import org.thoughtcrime.securesms.crypto.storage.SignalIdentityKeyStore;
+import org.thoughtcrime.securesms.crypto.storage.SignalKyberPreKeyStore;
+import org.thoughtcrime.securesms.crypto.storage.SignalSenderKeyStore;
+import org.thoughtcrime.securesms.crypto.storage.SignalServiceAccountDataStoreImpl;
+import org.thoughtcrime.securesms.crypto.storage.SignalServiceDataStoreImpl;
+import org.thoughtcrime.securesms.crypto.storage.TextSecurePreKeyStore;
+import org.thoughtcrime.securesms.crypto.storage.TextSecureSessionStore;
+import org.thoughtcrime.securesms.database.DatabaseObserver;
+import org.thoughtcrime.securesms.database.JobDatabase;
+import org.thoughtcrime.securesms.database.PendingRetryReceiptCache;
+import org.thoughtcrime.securesms.jobmanager.JobManager;
+import org.thoughtcrime.securesms.jobmanager.JobMigrator;
+import org.thoughtcrime.securesms.jobmanager.impl.FactoryJobPredicate;
+import org.thoughtcrime.securesms.jobs.AttachmentCompressionJob;
+import org.thoughtcrime.securesms.jobs.AttachmentUploadJob;
+import org.thoughtcrime.securesms.jobs.FastJobStorage;
+import org.thoughtcrime.securesms.jobs.GroupCallUpdateSendJob;
+import org.thoughtcrime.securesms.jobs.IndividualSendJob;
+import org.thoughtcrime.securesms.jobs.JobManagerFactories;
+import org.thoughtcrime.securesms.jobs.MarkerJob;
+import org.thoughtcrime.securesms.jobs.PreKeysSyncJob;
+import org.thoughtcrime.securesms.jobs.PushGroupSendJob;
+import org.thoughtcrime.securesms.jobs.PushProcessMessageJob;
+import org.thoughtcrime.securesms.jobs.ReactionSendJob;
+import org.thoughtcrime.securesms.jobs.SendDeliveryReceiptJob;
+import org.thoughtcrime.securesms.jobs.TypingSendJob;
+import org.thoughtcrime.securesms.keyvalue.SignalStore;
+import org.thoughtcrime.securesms.megaphone.MegaphoneRepository;
+import org.thoughtcrime.securesms.messages.IncomingMessageObserver;
+import org.thoughtcrime.securesms.net.DeviceTransferBlockingInterceptor;
+import org.thoughtcrime.securesms.net.NetworkManager;
+import org.thoughtcrime.securesms.net.NetworkProxyKt;
+import org.thoughtcrime.securesms.net.Networking;
+import org.thoughtcrime.securesms.net.ProxyConfig;
+import org.thoughtcrime.securesms.net.SignalWebSocketHealthMonitor;
+import org.thoughtcrime.securesms.net.StandardUserAgentInterceptor;
+import org.thoughtcrime.securesms.notifications.MessageNotifier;
+import org.thoughtcrime.securesms.notifications.OptimizedMessageNotifier;
+import org.thoughtcrime.securesms.push.SecurityEventListener;
+import org.thoughtcrime.securesms.push.SignalServiceNetworkAccess;
+import org.thoughtcrime.securesms.recipients.LiveRecipientCache;
+import org.thoughtcrime.securesms.revealable.ViewOnceMessageManager;
+import org.thoughtcrime.securesms.service.DeletedCallEventManager;
+import org.thoughtcrime.securesms.service.ExpiringArchivedStoriesManager;
+import org.thoughtcrime.securesms.service.ExpiringMessageManager;
+import org.thoughtcrime.securesms.service.ExpiringStoriesManager;
+import org.thoughtcrime.securesms.service.PendingRetryReceiptManager;
+import org.thoughtcrime.securesms.service.PinnedMessageManager;
+import org.thoughtcrime.securesms.service.ScheduledMessageManager;
+import org.thoughtcrime.securesms.service.TrimThreadsByDateManager;
+import org.thoughtcrime.securesms.service.webrtc.SignalCallManager;
+import org.thoughtcrime.securesms.stories.Stories;
+import org.thoughtcrime.securesms.util.AlarmSleepTimer;
+import org.thoughtcrime.securesms.util.EarlyMessageCache;
+import org.thoughtcrime.securesms.util.Environment;
+import org.thoughtcrime.securesms.util.FrameRateTracker;
+import org.thoughtcrime.securesms.util.PreKeyBatcher;
+import org.thoughtcrime.securesms.util.RemoteConfig;
+import org.thoughtcrime.securesms.util.TextSecurePreferences;
+import org.thoughtcrime.securesms.video.exo.GiphyMp4Cache;
+import org.thoughtcrime.securesms.video.exo.SimpleExoPlayerPool;
+import org.thoughtcrime.securesms.webrtc.audio.AudioManagerCompat;
+import org.whispersystems.signalservice.api.SignalServiceAccountDataStore;
+import org.whispersystems.signalservice.api.SignalServiceAccountManager;
+import org.whispersystems.signalservice.api.SignalServiceDataStore;
+import org.whispersystems.signalservice.api.SignalServiceMessageReceiver;
+import org.whispersystems.signalservice.api.SignalServiceMessageSender;
+import org.whispersystems.signalservice.api.account.AccountApi;
+import org.whispersystems.signalservice.api.crypto.SignalServiceCipher;
+import org.whispersystems.signalservice.api.donations.DonationsApi;
+import org.whispersystems.signalservice.api.groupsv2.ClientZkOperations;
+import org.whispersystems.signalservice.api.groupsv2.GroupsV2Operations;
+import org.whispersystems.signalservice.api.keys.KeysApi;
+import org.whispersystems.signalservice.api.keys.PreKeyRepository;
+import org.whispersystems.signalservice.api.message.MessageApi;
+import org.whispersystems.signalservice.api.profiles.ProfileApi;
+import org.whispersystems.signalservice.api.push.SignalServiceAddress;
+import org.whispersystems.signalservice.api.registration.RegistrationApi;
+import org.whispersystems.signalservice.api.services.DonationsService;
+import org.whispersystems.signalservice.api.services.ProfileService;
+import org.whispersystems.signalservice.api.storage.StorageServiceApi;
+import org.whispersystems.signalservice.api.util.CredentialsProvider;
+import org.whispersystems.signalservice.api.websocket.SignalWebSocket;
+import org.whispersystems.signalservice.api.websocket.WebSocketFactory;
+import org.whispersystems.signalservice.api.websocket.WebSocketUnavailableException;
+import org.whispersystems.signalservice.internal.configuration.SignalServiceConfiguration;
+import org.whispersystems.signalservice.internal.push.PushServiceSocket;
+import org.whispersystems.signalservice.internal.websocket.LibSignalChatConnection;
+import org.whispersystems.signalservice.internal.websocket.LibSignalNetworkExtensions;
+
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+
+/**
+ * Implementation of {@link AppDependencies.Provider} that provides real app dependencies.
+ */
+public class ApplicationDependencyProvider implements AppDependencies.Provider {
+
+  private final Application context;
+
+  public ApplicationDependencyProvider(@NonNull Application context) {
+    this.context = context;
+  }
+
+  private @NonNull ClientZkOperations provideClientZkOperations(@NonNull SignalServiceConfiguration signalServiceConfiguration) {
+    return ClientZkOperations.create(signalServiceConfiguration);
+  }
+
+  @Override
+  public @NonNull PushServiceSocket providePushServiceSocket(@NonNull SignalServiceConfiguration signalServiceConfiguration, @NonNull GroupsV2Operations groupsV2Operations) {
+    return new PushServiceSocket(signalServiceConfiguration,
+                                 new DynamicCredentialsProvider(),
+                                 BuildConfig.SIGNAL_AGENT,
+                                 RemoteConfig.okHttpAutomaticRetry());
+  }
+
+  @Override
+  public @NonNull SignalRestClient provideSignalRestClient(@NonNull SignalServiceConfiguration signalServiceConfiguration) {
+    return new SignalRestClient(signalServiceConfiguration,
+                                BuildConfig.SIGNAL_AGENT,
+                                new DynamicCredentialsProvider(),
+                                RemoteConfig.okHttpAutomaticRetry());
+  }
+
+  @Override
+  public @NonNull GroupsV2Operations provideGroupsV2Operations(@NonNull SignalServiceConfiguration signalServiceConfiguration) {
+    return new GroupsV2Operations(provideClientZkOperations(signalServiceConfiguration), RemoteConfig.groupLimits().getHardLimit());
+  }
+
+  @Override
+  public @NonNull SignalServiceAccountManager provideSignalServiceAccountManager(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull AccountApi accountApi, @NonNull PushServiceSocket pushServiceSocket, @NonNull GroupsV2Operations groupsV2Operations) {
+    return new SignalServiceAccountManager(authWebSocket, accountApi, pushServiceSocket, groupsV2Operations);
+  }
+
+  @Override
+  public @NonNull SignalServiceMessageSender provideSignalServiceMessageSender(@NonNull SignalServiceDataStore protocolStore,
+                                                                               @NonNull PushServiceSocket pushServiceSocket,
+                                                                               @NonNull MessageApi messageApi,
+                                                                               @NonNull KeysApi keysApi) {
+      return new SignalServiceMessageSender(pushServiceSocket,
+                                            protocolStore,
+                                            ReentrantSessionLock.INSTANCE,
+                                            messageApi,
+                                            keysApi,
+                                            Optional.of(new SecurityEventListener(context)),
+                                            SignalExecutors.newCachedBoundedExecutor("signal-messages", ThreadUtil.PRIORITY_IMPORTANT_BACKGROUND_THREAD, 1, 16, 30),
+                                            RemoteConfig.maxEnvelopeSizeBytes(),
+                                            RemoteConfig.maxIncrementalMacsPerEnvelope(),
+                                            RemoteConfig::useMessageSendRestFallback,
+                                            new PreKeyRepository(
+                                                keysApi,
+                                                protocolStore.aci(),
+                                                new SignalProtocolAddress(pushServiceSocket.getCredentialsProvider().getAci().getLibSignalServiceId(),
+                                                                          pushServiceSocket.getCredentialsProvider().getDeviceId()),
+                                                PreKeyBatcher.INSTANCE
+                                              )
+                                            );
+  }
+
+  @Override
+  public @NonNull MessageService provideMessageService(@NonNull SignalServiceDataStore protocolStore,
+                                                       @NonNull MessageApiV2 messageApiV2,
+                                                       @NonNull KeysApiV2 keysApiV2) {
+    SignalServiceAddress          localAddress  = new SignalServiceAddress(SignalStore.account().requireAci(), SignalStore.account().getE164());
+    int                           localDeviceId = SignalStore.account().getDeviceId();
+    SignalServiceAccountDataStore aciStore      = protocolStore.aci();
+    SignalServiceCipher           cipher        = new SignalServiceCipher(localAddress, localDeviceId, aciStore, ReentrantSessionLock.INSTANCE, null);
+
+    return new MessageService(localAddress, localDeviceId, messageApiV2, keysApiV2, aciStore, ReentrantSessionLock.INSTANCE, cipher, RemoteConfig.maxEnvelopeSizeBytes());
+  }
+
+  @Override
+  public @NonNull SignalServiceMessageReceiver provideSignalServiceMessageReceiver(@NonNull PushServiceSocket pushServiceSocket) {
+    return new SignalServiceMessageReceiver(pushServiceSocket);
+  }
+
+  @Override
+  public @NonNull SignalServiceNetworkAccess provideSignalServiceNetworkAccess() {
+    return new SignalServiceNetworkAccess(context);
+  }
+
+  @Override
+  public @NonNull NetworkManager provideNetworkManager() {
+    return NetworkManager.create(context);
+  }
+
+  @Override
+  public @NonNull LiveRecipientCache provideRecipientCache() {
+    return new LiveRecipientCache(context);
+  }
+
+  @Override
+  public @NonNull JobManager provideJobManager(@NonNull JobManager.Configuration.Builder configurationBuilder) {
+    return new JobManager(context, configurationBuilder.build());
+  }
+
+  @Override
+  public @NonNull JobManager.Configuration.Builder provideJobManagerConfigurationBuilder() {
+    return new JobManager.Configuration.Builder()
+                                       .setJobFactories(JobManagerFactories.getJobFactories(context))
+                                       .setConstraintFactories(JobManagerFactories.getConstraintFactories(context))
+                                       .setConstraintObservers(JobManagerFactories.getConstraintObservers(context))
+                                       .setJobStorage(new FastJobStorage(JobDatabase.getInstance(context)))
+                                       .setJobMigrator(new JobMigrator(TextSecurePreferences.getJobManagerVersion(context), JobManager.CURRENT_VERSION, JobManagerFactories.getJobMigrations(context)))
+                                       .addReservedJobRunner(new FactoryJobPredicate(PushProcessMessageJob.KEY, MarkerJob.KEY))
+                                       .addReservedJobRunner(new FactoryJobPredicate(AttachmentUploadJob.KEY, AttachmentCompressionJob.KEY))
+                                       .addReservedJobRunner(new FactoryJobPredicate(
+                                           IndividualSendJob.KEY,
+                                           PushGroupSendJob.KEY,
+                                           ReactionSendJob.KEY,
+                                           TypingSendJob.KEY,
+                                           GroupCallUpdateSendJob.KEY,
+                                           SendDeliveryReceiptJob.KEY
+                                       ));
+  }
+
+  @Override
+  public @NonNull FrameRateTracker provideFrameRateTracker() {
+    return new FrameRateTracker(context);
+  }
+
+  @SuppressLint("DiscouragedApi")
+  public @NonNull MegaphoneRepository provideMegaphoneRepository() {
+    return new MegaphoneRepository(context);
+  }
+
+  @Override
+  public @NonNull EarlyMessageCache provideEarlyMessageCache() {
+    return new EarlyMessageCache();
+  }
+
+  @Override
+  public @NonNull MessageNotifier provideMessageNotifier() {
+    return new OptimizedMessageNotifier(context);
+  }
+
+  @Override
+  public @NonNull IncomingMessageObserver provideIncomingMessageObserver(@NonNull SignalWebSocket.AuthenticatedWebSocket webSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket) {
+    return new IncomingMessageObserver(context, webSocket, unauthWebSocket);
+  }
+
+  @Override
+  public @NonNull TrimThreadsByDateManager provideTrimThreadsByDateManager() {
+    return new TrimThreadsByDateManager(context);
+  }
+
+  @Override
+  public @NonNull ViewOnceMessageManager provideViewOnceMessageManager() {
+    return new ViewOnceMessageManager(context);
+  }
+
+  @Override
+  public @NonNull ExpiringStoriesManager provideExpiringStoriesManager() {
+    return new ExpiringStoriesManager(context);
+  }
+
+  @Override
+  public @NonNull ExpiringArchivedStoriesManager provideExpiringArchivedStoriesManager() {
+    return new ExpiringArchivedStoriesManager(context);
+  }
+
+  @Override
+  public @NonNull ExpiringMessageManager provideExpiringMessageManager() {
+    return new ExpiringMessageManager(context);
+  }
+
+  @Override
+  public @NonNull DeletedCallEventManager provideDeletedCallEventManager() {
+    return new DeletedCallEventManager(context);
+  }
+
+  @Override
+  public @NonNull ScheduledMessageManager provideScheduledMessageManager() {
+    return new ScheduledMessageManager(context);
+  }
+
+  @Override
+  public @NonNull PinnedMessageManager providePinnedMessageManager() {
+    return new PinnedMessageManager(context);
+  }
+
+  @Override
+  public @NonNull Network provideLibsignalNetwork(@NonNull SignalServiceConfiguration config, @NonNull NetworkProxyState proxyState) {
+    Network network = new Network(BuildConfig.LIBSIGNAL_NET_ENV, StandardUserAgentInterceptor.USER_AGENT, RemoteConfig.getLibsignalConfigs(), Network.BuildVariant.PRODUCTION);
+    LibSignalNetworkExtensions.applyConfiguration(network, config);
+
+    ProxyConfig proxyConfig = NetworkProxyKt.resolveProxyConfig(Networking.getSocksProxy());
+    NetworkProxyKt.configureProxy(network, proxyConfig);
+    proxyState.update(proxyConfig);
+
+    return network;
+  }
+
+  @Override
+  public @NonNull TypingStatusRepository provideTypingStatusRepository() {
+    return new TypingStatusRepository();
+  }
+
+  @Override
+  public @NonNull TypingStatusSender provideTypingStatusSender() {
+    return new TypingStatusSender();
+  }
+
+  @Override
+  public @NonNull DatabaseObserver provideDatabaseObserver() {
+    return new DatabaseObserver();
+  }
+
+  @Override
+  public @NonNull SignalCallManager provideSignalCallManager() {
+    return new SignalCallManager(context);
+  }
+
+  @Override
+  public @NonNull PendingRetryReceiptManager providePendingRetryReceiptManager() {
+    return new PendingRetryReceiptManager(context);
+  }
+
+  @Override
+  public @NonNull PendingRetryReceiptCache providePendingRetryReceiptCache() {
+    return new PendingRetryReceiptCache();
+  }
+
+  @Override
+  public @NonNull SignalWebSocket.AuthenticatedWebSocket provideAuthWebSocket(@NonNull Supplier<SignalServiceConfiguration> signalServiceConfigurationSupplier, @NonNull Supplier<Network> libSignalNetworkSupplier) {
+    SleepTimer                   sleepTimer    = !SignalStore.account().isPushAvailable() || SignalStore.settings().getForceWebsocketMode().isEnabled() ? new AlarmSleepTimer(context) : new UptimeSleepTimer();
+    SignalWebSocketHealthMonitor healthMonitor = new SignalWebSocketHealthMonitor(sleepTimer, true);
+
+    WebSocketFactory authFactory = () -> {
+      DynamicCredentialsProvider credentialsProvider = new DynamicCredentialsProvider();
+
+      if (credentialsProvider.isInvalid()) {
+        throw new WebSocketUnavailableException("Invalid auth credentials");
+      }
+
+      Network network = libSignalNetworkSupplier.get();
+      return new LibSignalChatConnection("libsignal-auth",
+                                         network,
+                                         credentialsProvider,
+                                         Stories.isFeatureEnabled(),
+                                         healthMonitor);
+    };
+
+    SignalWebSocket.AuthenticatedWebSocket webSocket = new SignalWebSocket.AuthenticatedWebSocket(authFactory,
+                                                                                                  () -> !SignalStore.misc().isClientDeprecated() && SignalStore.account().isRegistered() && !TextSecurePreferences.isUnauthorizedReceived(context) && !DeviceTransferBlockingInterceptor.getInstance().isBlockingNetwork() && !Environment.IS_INSTRUMENTATION,
+                                                                                                  sleepTimer,
+                                                                                                  TimeUnit.SECONDS.toMillis(30));
+    if (AppForegroundObserver.isForegrounded()) {
+      webSocket.registerKeepAliveToken(SignalWebSocket.FOREGROUND_KEEPALIVE);
+    }
+
+    healthMonitor.monitor(webSocket);
+
+    return webSocket;
+  }
+
+  @Override
+  public @NonNull SignalWebSocket.UnauthenticatedWebSocket provideUnauthWebSocket(@NonNull Supplier<SignalServiceConfiguration> signalServiceConfigurationSupplier, @NonNull Supplier<Network> libSignalNetworkSupplier) {
+    SleepTimer                   sleepTimer    = !SignalStore.account().isPushAvailable() || SignalStore.settings().getForceWebsocketMode().isEnabled() ? new AlarmSleepTimer(context) : new UptimeSleepTimer();
+    SignalWebSocketHealthMonitor healthMonitor = new SignalWebSocketHealthMonitor(sleepTimer, false);
+
+    WebSocketFactory unauthFactory = () -> {
+      Network network = libSignalNetworkSupplier.get();
+      return new LibSignalChatConnection("libsignal-unauth",
+                                         network,
+                                         null,
+                                         Stories.isFeatureEnabled(),
+                                         healthMonitor);
+    };
+
+    SignalWebSocket.UnauthenticatedWebSocket webSocket = new SignalWebSocket.UnauthenticatedWebSocket(unauthFactory,
+                                                                                                      () -> !SignalStore.misc().isClientDeprecated() && !DeviceTransferBlockingInterceptor.getInstance().isBlockingNetwork() && !Environment.IS_INSTRUMENTATION,
+                                                                                                      sleepTimer,
+                                                                                                      TimeUnit.SECONDS.toMillis(30));
+    if (AppForegroundObserver.isForegrounded()) {
+      webSocket.registerKeepAliveToken(SignalWebSocket.FOREGROUND_KEEPALIVE);
+    }
+
+    healthMonitor.monitor(webSocket);
+    return webSocket;
+  }
+
+  @Override
+  public @NonNull SignalServiceDataStoreImpl provideProtocolStore() {
+    ACI localAci = SignalStore.account().getAci();
+    PNI localPni = SignalStore.account().getPni();
+
+    if (localAci == null) {
+      throw new IllegalStateException("No ACI set!");
+    }
+
+    if (localPni == null) {
+      throw new IllegalStateException("No PNI set!");
+    }
+
+    boolean needsPreKeyJob = false;
+
+    if (!SignalStore.account().hasAciIdentityKey()) {
+      SignalStore.account().generateAciIdentityKeyIfNecessary();
+      needsPreKeyJob = true;
+    }
+
+    if (!SignalStore.account().hasPniIdentityKey()) {
+      SignalStore.account().generatePniIdentityKeyIfNecessary();
+      needsPreKeyJob = true;
+    }
+
+    if (needsPreKeyJob) {
+      PreKeysSyncJob.enqueueIfNeeded();
+    }
+
+    SignalBaseIdentityKeyStore baseIdentityStore = new SignalBaseIdentityKeyStore(context);
+
+    SignalServiceAccountDataStoreImpl aciStore = new SignalServiceAccountDataStoreImpl(context,
+                                                                                       new TextSecurePreKeyStore(localAci),
+                                                                                       new SignalKyberPreKeyStore(localAci),
+                                                                                       new SignalIdentityKeyStore(baseIdentityStore, () -> SignalStore.account().getAciIdentityKey()),
+                                                                                       new TextSecureSessionStore(localAci),
+                                                                                       new SignalSenderKeyStore(context));
+
+    SignalServiceAccountDataStoreImpl pniStore = new SignalServiceAccountDataStoreImpl(context,
+                                                                                       new TextSecurePreKeyStore(localPni),
+                                                                                       new SignalKyberPreKeyStore(localPni),
+                                                                                       new SignalIdentityKeyStore(baseIdentityStore, () -> SignalStore.account().getPniIdentityKey()),
+                                                                                       new TextSecureSessionStore(localPni),
+                                                                                       new SignalSenderKeyStore(context));
+    return new SignalServiceDataStoreImpl(context, aciStore, pniStore);
+  }
+
+  @Override
+  public @NonNull GiphyMp4Cache provideGiphyMp4Cache() {
+    return new GiphyMp4Cache(ByteUnit.MEGABYTES.toBytes(16));
+  }
+
+  @Override
+  public @NonNull ExoPlayerPool<ExoPlayer> provideExoPlayerPool() {
+    return new SimpleExoPlayerPool(context);
+  }
+
+  @Override
+  public @NonNull AudioManagerCompat provideAndroidCallAudioManager() {
+    return AudioManagerCompat.create(context);
+  }
+
+  @Override
+  public @NonNull DonationsService provideDonationsService(@NonNull DonationsApi donationsApi) {
+    return new DonationsService(donationsApi, DonationPermits.INSTANCE);
+  }
+
+  @Override
+  public @NonNull DonationPermitsRepository provideDonationPermitsRepository(@NonNull byte[] zkGroupServerPublicParams) {
+    try {
+      return new DonationPermitsRepository(NetworkDonationPermitIssuer.INSTANCE, new ServerPublicParams(zkGroupServerPublicParams));
+    } catch (InvalidInputException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  @Override
+  public @NonNull ProfileService provideProfileService(@NonNull ClientZkProfileOperations clientZkProfileOperations,
+                                                       @NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket,
+                                                       @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket)
+  {
+    return new ProfileService(clientZkProfileOperations, authWebSocket, unauthWebSocket);
+  }
+
+  @Override
+  public @NonNull DeadlockDetector provideDeadlockDetector() {
+    HandlerThread handlerThread = new HandlerThread("signal-DeadlockDetector", ThreadUtil.PRIORITY_BACKGROUND_THREAD);
+    handlerThread.start();
+    return new DeadlockDetector(new Handler(handlerThread.getLooper()), TimeUnit.SECONDS.toMillis(5));
+  }
+
+  @Override
+  public @NonNull ClientZkReceiptOperations provideClientZkReceiptOperations(@NonNull SignalServiceConfiguration signalServiceConfiguration) {
+    return provideClientZkOperations(signalServiceConfiguration).getReceiptOperations();
+  }
+
+  @Override
+  public @NonNull BillingApi provideBillingApi() {
+    return BillingFactory.create(GooglePlayBillingDependencies.INSTANCE, Environment.Backups.supportsGooglePlayBilling());
+  }
+
+  @Override
+  public @NonNull ArchiveApi provideArchiveApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket, @NonNull PushServiceSocket pushServiceSocket, @NonNull SignalServiceConfiguration signalServiceConfiguration) {
+    try {
+      return new ArchiveApi(authWebSocket, unauthWebSocket, pushServiceSocket, new GenericServerPublicParams(signalServiceConfiguration.getBackupServerPublicParams()));
+    } catch (InvalidInputException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public @NonNull KeysApi provideKeysApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket) {
+    return new KeysApi(authWebSocket, unauthWebSocket);
+  }
+
+  @Override
+  public @NonNull AttachmentApi provideAttachmentApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull PushServiceSocket pushServiceSocket) {
+    return new AttachmentApi(authWebSocket, pushServiceSocket);
+  }
+
+  @Override
+  public @NonNull LinkDeviceApi provideLinkDeviceApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket) {
+    return new LinkDeviceApi(authWebSocket);
+  }
+
+  @Override
+  public @NonNull RegistrationApi provideRegistrationApi(@NonNull PushServiceSocket pushServiceSocket) {
+    return new RegistrationApi(pushServiceSocket);
+  }
+
+  @Override
+  public @NonNull StorageServiceApi provideStorageServiceApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull PushServiceSocket pushServiceSocket) {
+    return new StorageServiceApi(authWebSocket, pushServiceSocket);
+  }
+
+  @Override
+  public @NonNull AccountApi provideAccountApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket) {
+    return new AccountApi(authWebSocket);
+  }
+
+  @Override
+  public @NonNull UsernameApi provideUsernameApi(@NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket) {
+    return new UsernameApi(unauthWebSocket);
+  }
+
+  @Override
+  public @NonNull CallingApi provideCallingApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket, @NonNull PushServiceSocket pushServiceSocket) {
+    return new CallingApi(authWebSocket, unauthWebSocket, pushServiceSocket);
+  }
+
+  @Override
+  public @NonNull PaymentsApi providePaymentsApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket) {
+    return new PaymentsApi(authWebSocket);
+  }
+
+  @Override
+  public @NonNull CdsApi provideCdsApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket) {
+    return new CdsApi(authWebSocket);
+  }
+
+  @Override
+  public @NonNull RateLimitChallengeApi provideRateLimitChallengeApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket) {
+    return new RateLimitChallengeApi(authWebSocket);
+  }
+
+  @Override
+  public @NonNull MessageApi provideMessageApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket) {
+    return new MessageApi(authWebSocket, unauthWebSocket);
+  }
+
+  @Override
+  public @NonNull ProvisioningApi provideProvisioningApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket) {
+    return new ProvisioningApi(authWebSocket, unauthWebSocket);
+  }
+
+  @Override
+  public @NonNull CertificateApi provideCertificateApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket) {
+    return new CertificateApi(authWebSocket);
+  }
+
+  @Override
+  public @NonNull ProfileApi provideProfileApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket, @NonNull PushServiceSocket pushServiceSocket, @NonNull ClientZkProfileOperations clientZkProfileOperations) {
+    return new ProfileApi(authWebSocket, unauthWebSocket, pushServiceSocket, clientZkProfileOperations);
+  }
+
+  @Override
+  public @NonNull RemoteConfigApi provideRemoteConfigApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull PushServiceSocket pushServiceSocket) {
+    return new RemoteConfigApi(authWebSocket, pushServiceSocket);
+  }
+
+  @Override
+  public @NonNull DonationsApi provideDonationsApi(@NonNull SignalWebSocket.AuthenticatedWebSocket authWebSocket, @NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket) {
+    return new DonationsApi(authWebSocket, unauthWebSocket);
+  }
+
+  @Override
+  public @NonNull SvrBApi provideSvrBApi(@NotNull Network libSignalNetwork) {
+    return new SvrBApi(libSignalNetwork);
+  }
+
+  @Override
+  public @NonNull KeyTransparencyApi provideKeyTransparencyApi(@NonNull SignalWebSocket.UnauthenticatedWebSocket unauthWebSocket) {
+    return new KeyTransparencyApi(unauthWebSocket);
+  }
+
+  @Override public @NotNull BlobProvider provideBlobs() {
+    return new BlobProvider(context, AppAttachmentSecretStore.INSTANCE);
+  }
+
+  @VisibleForTesting
+  static class DynamicCredentialsProvider implements CredentialsProvider {
+
+    @Override
+    public ACI getAci() {
+      return SignalStore.account().getAci();
+    }
+
+    @Override
+    public PNI getPni() {
+      return SignalStore.account().getPni();
+    }
+
+    @Override
+    public String getE164() {
+      return SignalStore.account().getE164();
+    }
+
+    @Override
+    public String getPassword() {
+      return SignalStore.account().getServicePassword();
+    }
+
+    @Override
+    public int getDeviceId() {
+      return SignalStore.account().getDeviceId();
+    }
+  }
+}

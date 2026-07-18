@@ -1,0 +1,255 @@
+package org.thoughtcrime.securesms.components.settings.app
+
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.os.Process
+import androidx.navigation.NavDirections
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.signal.core.util.getParcelableExtraCompat
+import org.signal.core.util.logging.Log
+import org.signal.donations.InAppPaymentType
+import org.thoughtcrime.securesms.MainActivity
+import org.thoughtcrime.securesms.R
+import org.thoughtcrime.securesms.components.settings.DSLSettingsActivity
+import org.thoughtcrime.securesms.components.settings.app.routes.AppSettingsRoute
+import org.thoughtcrime.securesms.help.HelpFragment
+import org.thoughtcrime.securesms.keyvalue.SettingsValues
+import org.thoughtcrime.securesms.keyvalue.SignalStore
+import org.thoughtcrime.securesms.profiles.manage.UsernameEditMode
+import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.service.KeyCachingService
+import org.thoughtcrime.securesms.util.CachedInflater
+import org.thoughtcrime.securesms.util.DynamicTheme
+import org.thoughtcrime.securesms.util.Environment
+import org.thoughtcrime.securesms.util.SignalE164Util
+import org.thoughtcrime.securesms.util.navigation.safeNavigate
+
+private const val START_ROUTE = "app.settings.args.START_ROUTE"
+private const val NOTIFICATION_CATEGORY = "android.intent.category.NOTIFICATION_PREFERENCES"
+private const val STATE_WAS_CONFIGURATION_UPDATED = "app.settings.state.configuration.updated"
+private const val EXTRA_PERFORM_ACTION_ON_CREATE = "extra_perform_action_on_create"
+
+class AppSettingsActivity : DSLSettingsActivity() {
+
+  private val TAG = Log.tag(AppSettingsActivity::class)
+
+  private var wasConfigurationUpdated = false
+
+  override fun onCreate(savedInstanceState: Bundle?, ready: Boolean) {
+    super.onCreate(savedInstanceState, ready)
+
+    val startingAction: NavDirections? = if (intent?.categories?.contains(NOTIFICATION_CATEGORY) == true) {
+      AppSettingsFragmentDirections.actionDirectToNotificationsSettingsFragment()
+    } else if (Build.VERSION.SDK_INT >= 34 && getLaunchedFromUid() != Process.myUid()) {
+      Log.w(TAG, "Settings was launched by an external process. Ignoring starting route.")
+      null
+    } else {
+      when (val appSettingsRoute: AppSettingsRoute? = intent?.getParcelableExtraCompat(START_ROUTE, AppSettingsRoute::class.java)) {
+        AppSettingsRoute.Empty -> null
+        is AppSettingsRoute.BackupsRoute.Local -> {
+          if (SignalStore.backup.newLocalBackupsEnabled || (Environment.Backups.isNewFormatSupportedForLocalBackup() && (!SignalStore.settings.isBackupEnabled || appSettingsRoute.triggerUpdateFlow))) {
+            AppSettingsFragmentDirections.actionDirectToLocalBackupsFragment()
+              .setTriggerUpdateFlow(appSettingsRoute.triggerUpdateFlow)
+          } else {
+            AppSettingsFragmentDirections.actionDirectToBackupsPreferenceFragment()
+          }
+        }
+        is AppSettingsRoute.HelpRoute.Settings -> AppSettingsFragmentDirections.actionDirectToHelpFragment()
+          .setStartCategoryIndex(appSettingsRoute.startCategoryIndex)
+        AppSettingsRoute.DataAndStorageRoute.Proxy -> AppSettingsFragmentDirections.actionDirectToNetworkPreferenceFragment()
+        AppSettingsRoute.NotificationsRoute.Notifications -> AppSettingsFragmentDirections.actionDirectToNotificationsSettingsFragment()
+        is AppSettingsRoute.NotificationsRoute.PlayServicesProblem -> AppSettingsFragmentDirections.actionDirectToNotificationsSettingsFragment()
+          .setPlayServicesErrorCode(appSettingsRoute.errorCode)
+        AppSettingsRoute.ChangeNumberRoute.Start -> AppSettingsFragmentDirections.actionDirectToChangeNumberFragment()
+        is AppSettingsRoute.DonationsRoute.Donations -> AppSettingsFragmentDirections.actionDirectToManageDonations().setDirectToCheckoutType(appSettingsRoute.directToCheckoutType)
+        AppSettingsRoute.NotificationsRoute.NotificationProfiles -> AppSettingsFragmentDirections.actionDirectToNotificationProfiles()
+        is AppSettingsRoute.NotificationsRoute.EditProfile -> AppSettingsFragmentDirections.actionDirectToCreateNotificationProfiles()
+        is AppSettingsRoute.NotificationsRoute.ProfileDetails -> AppSettingsFragmentDirections.actionDirectToNotificationProfileDetails(
+          appSettingsRoute.profileId
+        )
+
+        AppSettingsRoute.PrivacyRoute.Privacy -> AppSettingsFragmentDirections.actionDirectToPrivacy()
+        AppSettingsRoute.LinkDeviceRoute.LinkDevice -> AppSettingsFragmentDirections.actionDirectToDevices()
+        AppSettingsRoute.UsernameLinkRoute.UsernameLink -> AppSettingsFragmentDirections.actionDirectToUsernameLinkSettings()
+        is AppSettingsRoute.AccountRoute.Username -> AppSettingsFragmentDirections.actionDirectToUsernameRecovery()
+        is AppSettingsRoute.BackupsRoute.Remote -> AppSettingsFragmentDirections.actionDirectToRemoteBackupsSettingsFragment().setForQuickRestore(appSettingsRoute.forQuickRestore)
+        AppSettingsRoute.ChatFoldersRoute.ChatFolders -> AppSettingsFragmentDirections.actionDirectToChatFoldersFragment()
+        is AppSettingsRoute.ChatFoldersRoute.CreateChatFolders -> AppSettingsFragmentDirections.actionDirectToCreateFoldersFragment(
+          appSettingsRoute.folderId,
+          appSettingsRoute.threadIds
+        )
+
+        AppSettingsRoute.ChatsRoute.Chats -> AppSettingsFragmentDirections.actionDirectToChatsSettingsFragment()
+        is AppSettingsRoute.BackupsRoute.Backups -> AppSettingsFragmentDirections.actionDirectToBackupsSettingsFragment().setLaunchCheckoutFlow(appSettingsRoute.launchCheckoutFlow)
+        AppSettingsRoute.Invite -> AppSettingsFragmentDirections.actionDirectToInviteFragment()
+        AppSettingsRoute.DataAndStorageRoute.DataAndStorage -> AppSettingsFragmentDirections.actionDirectToStoragePreferenceFragment()
+        AppSettingsRoute.AccountRoute.Account -> AppSettingsFragmentDirections.actionDirectToAccountSettingsFragment()
+        else -> error("Unsupported start location: ${appSettingsRoute?.javaClass?.name}")
+      }
+    }
+
+    intent = intent.putExtra(START_ROUTE, AppSettingsRoute.Empty)
+
+    if (startingAction == null && savedInstanceState != null) {
+      wasConfigurationUpdated = savedInstanceState.getBoolean(STATE_WAS_CONFIGURATION_UPDATED)
+    }
+
+    startingAction?.let {
+      navController.safeNavigate(it)
+    }
+
+    SignalStore.settings.onConfigurationSettingChanged.observe(this) { key ->
+      if (key == SettingsValues.THEME) {
+        DynamicTheme.setDefaultDayNightMode(this)
+        wasConfigurationUpdated = true
+        recreate()
+      } else if (key == SettingsValues.LANGUAGE) {
+        CachedInflater.from(this).clear()
+        wasConfigurationUpdated = true
+        recreate()
+        val intent = Intent(this, KeyCachingService::class.java)
+        intent.action = KeyCachingService.LOCALE_CHANGE_EVENT
+        startService(intent)
+      }
+    }
+
+    if (savedInstanceState == null) {
+      when (intent.getStringExtra(EXTRA_PERFORM_ACTION_ON_CREATE)) {
+        ACTION_CHANGE_NUMBER_SUCCESS -> {
+          MaterialAlertDialogBuilder(this)
+            .setMessage(getString(R.string.ChangeNumber__your_phone_number_has_changed_to_s, SignalE164Util.prettyPrint(Recipient.self().requireE164())))
+            .setPositiveButton(R.string.ChangeNumber__okay, null)
+            .show()
+        }
+      }
+    }
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    finish()
+    startActivity(intent)
+  }
+
+  override fun onSaveInstanceState(outState: Bundle) {
+    super.onSaveInstanceState(outState)
+    outState.putBoolean(STATE_WAS_CONFIGURATION_UPDATED, wasConfigurationUpdated)
+  }
+
+  override fun onWillFinish() {
+    if (wasConfigurationUpdated) {
+      setResult(MainActivity.RESULT_CONFIG_CHANGED)
+    }
+  }
+
+  override fun resolveNavGraphId(): Int = R.navigation.app_settings_with_change_number
+
+  override fun resolveStartBundle(): Bundle? = null
+
+  companion object {
+    const val ACTION_CHANGE_NUMBER_SUCCESS = "action_change_number_success"
+
+    @JvmStatic
+    @JvmOverloads
+    fun home(context: Context, action: String? = null): Intent {
+      return getIntentForStartLocation(context, AppSettingsRoute.Empty)
+        .putExtra(EXTRA_PERFORM_ACTION_ON_CREATE, action)
+    }
+
+    @JvmStatic
+    fun backups(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.BackupsRoute.Local())
+
+    @JvmStatic
+    fun help(context: Context, startCategoryIndex: Int = 0): Intent {
+      return getIntentForStartLocation(context, AppSettingsRoute.HelpRoute.Settings(startCategoryIndex = startCategoryIndex))
+        .putExtra(HelpFragment.START_CATEGORY_INDEX, startCategoryIndex)
+    }
+
+    @JvmStatic
+    fun proxy(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.DataAndStorageRoute.Proxy)
+
+    @JvmStatic
+    fun notifications(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.NotificationsRoute.Notifications)
+
+    @JvmStatic
+    fun playServicesProblem(context: Context, errorCode: Int): Intent {
+      return getIntentForStartLocation(context, AppSettingsRoute.NotificationsRoute.PlayServicesProblem(errorCode = errorCode))
+    }
+
+    @JvmStatic
+    fun changeNumber(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.ChangeNumberRoute.Start)
+
+    @JvmStatic
+    fun account(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.AccountRoute.Account)
+
+    @JvmStatic
+    fun subscriptions(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.DonationsRoute.Donations(directToCheckoutType = InAppPaymentType.RECURRING_DONATION))
+
+    @JvmStatic
+    fun manageSubscriptions(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.DonationsRoute.Donations())
+
+    fun manageStorage(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.DataAndStorageRoute.DataAndStorage)
+
+    @JvmStatic
+    fun notificationProfiles(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.NotificationsRoute.NotificationProfiles)
+
+    @JvmStatic
+    fun createNotificationProfile(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.NotificationsRoute.EditProfile())
+
+    @JvmStatic
+    fun privacy(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.PrivacyRoute.Privacy)
+
+    @JvmStatic
+    fun notificationProfileDetails(context: Context, profileId: Long): Intent {
+      return getIntentForStartLocation(context, AppSettingsRoute.NotificationsRoute.ProfileDetails(profileId = profileId))
+    }
+
+    @JvmStatic
+    fun linkedDevices(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.LinkDeviceRoute.LinkDevice)
+
+    @JvmStatic
+    fun usernameLinkSettings(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.UsernameLinkRoute.UsernameLink)
+
+    @JvmStatic
+    fun usernameRecovery(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.AccountRoute.Username(mode = UsernameEditMode.RECOVERY))
+
+    @JvmStatic
+    @JvmOverloads
+    fun remoteBackups(context: Context, forQuickRestore: Boolean = false): Intent = getIntentForStartLocation(context, AppSettingsRoute.BackupsRoute.Remote(forQuickRestore = forQuickRestore))
+
+    @JvmStatic
+    fun chats(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.ChatsRoute.Chats)
+
+    @JvmStatic
+    fun chatFolders(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.ChatFoldersRoute.ChatFolders)
+
+    @JvmStatic
+    fun createChatFolder(context: Context, id: Long = -1, threadIds: LongArray?): Intent {
+      return getIntentForStartLocation(
+        context,
+        AppSettingsRoute.ChatFoldersRoute.CreateChatFolders(
+          folderId = id,
+          threadIds = threadIds ?: longArrayOf()
+        )
+      )
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun backupsSettings(context: Context, launchCheckoutFlow: Boolean = false): Intent = getIntentForStartLocation(context, AppSettingsRoute.BackupsRoute.Backups(launchCheckoutFlow = launchCheckoutFlow))
+
+    @JvmStatic
+    fun invite(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.Invite)
+
+    @JvmStatic
+    fun upgradeLocalBackups(context: Context): Intent = getIntentForStartLocation(context, AppSettingsRoute.BackupsRoute.Local(triggerUpdateFlow = true))
+
+    private fun getIntentForStartLocation(context: Context, startRoute: AppSettingsRoute): Intent {
+      return Intent(context, AppSettingsActivity::class.java)
+        .putExtra(ARG_NAV_GRAPH, R.navigation.app_settings_with_change_number)
+        .putExtra(START_ROUTE, startRoute)
+    }
+  }
+}

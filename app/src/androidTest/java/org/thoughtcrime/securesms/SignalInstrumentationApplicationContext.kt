@@ -1,0 +1,73 @@
+package org.thoughtcrime.securesms
+
+import android.content.Context
+import org.signal.core.util.concurrent.SignalExecutors
+import org.signal.core.util.logging.AndroidLogger
+import org.signal.core.util.logging.Log
+import org.signal.libsignal.protocol.logging.SignalProtocolLoggerProvider
+import org.thoughtcrime.securesms.crypto.MasterSecretUtil
+import org.thoughtcrime.securesms.database.LogDatabase
+import org.thoughtcrime.securesms.dependencies.AppDependencies
+import org.thoughtcrime.securesms.dependencies.ApplicationDependencyProvider
+import org.thoughtcrime.securesms.dependencies.InstrumentationApplicationDependencyProvider
+import org.thoughtcrime.securesms.keyvalue.SignalStore
+import org.thoughtcrime.securesms.logging.CustomSignalProtocolLogger
+import org.thoughtcrime.securesms.logging.PersistentLogger
+import org.thoughtcrime.securesms.testing.InMemoryLogger
+import org.thoughtcrime.securesms.testing.TestRemoteConfig
+import org.thoughtcrime.securesms.util.Environment
+
+/**
+ * Application context for running instrumentation tests (aka androidTests).
+ */
+class SignalInstrumentationApplicationContext : ApplicationContext() {
+  override fun onCreate() {
+    MasterSecretUtil.generateMasterSecret(this, MasterSecretUtil.getUnencryptedPassphrase())
+    super.onCreate()
+  }
+
+  val inMemoryLogger: InMemoryLogger = InMemoryLogger()
+
+  override fun attachBaseContext(base: Context?) {
+    Environment.IS_INSTRUMENTATION = true
+    super.attachBaseContext(base)
+  }
+
+  override fun initializeAppDependencies() {
+    val default = ApplicationDependencyProvider(this)
+    AppDependencies.init(this, InstrumentationApplicationDependencyProvider(this, default))
+    AppDependencies.deadlockDetector.start()
+
+    // Stage any test-declared remote config into the store to be read in RemoteConfig.init().
+    if (TestRemoteConfig.pending.isNotEmpty()) {
+      val json = TestRemoteConfig.json
+      SignalStore.remoteConfig.currentConfig = json
+      SignalStore.remoteConfig.pendingConfig = json
+    }
+  }
+
+  override fun initializeLogging(locked: Boolean) {
+    Log.initialize({ true }, AndroidLogger, PersistentLogger.getInstance(this), inMemoryLogger)
+
+    SignalProtocolLoggerProvider.setProvider(CustomSignalProtocolLogger())
+
+    SignalExecutors.UNBOUNDED.execute {
+      Log.blockUntilAllWritesFinished()
+      LogDatabase.getInstance(this).logs.trimToSize()
+    }
+  }
+
+  override fun beginJobLoop() = Unit
+
+  /**
+   * Some of the jobs can interfere with some of the instrumentation tests.
+   *
+   * For example, we may try to create a release channel recipient while doing
+   * an import/backup test.
+   *
+   * This can be used to start the job loop if needed for tests that rely on it.
+   */
+  fun beginJobLoopForTests() {
+    super.beginJobLoop()
+  }
+}

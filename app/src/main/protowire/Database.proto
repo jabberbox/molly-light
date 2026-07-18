@@ -1,0 +1,622 @@
+/**
+ * Copyright (C) 2014-2016 Open Whisper Systems
+ *
+ * Licensed according to the LICENSE file in this repository.
+ */
+
+syntax = "proto3";
+
+package signal;
+
+option java_package        = "org.thoughtcrime.securesms.database.model.databaseprotos";
+option java_multiple_files = true;
+
+import "Backup.proto";
+import "SignalServiceLegacy.proto";
+
+// DEPRECATED -- only here for database migrations
+message ReactionList {
+    option deprecated = true;
+
+    message Reaction {
+        string emoji        = 1;
+        uint64 author       = 2;
+        uint64 sentTime     = 3;
+        uint64 receivedTime = 4;
+    }
+
+    repeated Reaction reactions = 1;
+}
+
+message BadgeList {
+    message Badge {
+        string   id           = 1;
+        string   category     = 2;
+        string   name         = 3;
+        string   description  = 4;
+        string   imageUrl     = 5;
+        uint64   expiration   = 6;
+        bool     visible      = 7;
+        string   imageDensity = 8;
+    }
+
+    repeated Badge badges = 1;
+}
+
+import "SignalService.proto";
+import "DecryptedGroups.proto";
+
+message DecryptedGroupV2Context {
+    signalservice.GroupContextV2 context            = 1;
+    DecryptedGroupChange         change             = 2;
+    DecryptedGroup               groupState         = 3;
+    DecryptedGroup               previousGroupState = 4;
+}
+
+message TemporalAuthCredentialResponse {
+    int64 date                   = 1;
+    bytes authCredentialResponse = 2;
+}
+
+message TemporalAuthCredentialResponses {
+    repeated TemporalAuthCredentialResponse credentialResponse = 1;
+}
+
+message AudioWaveFormData {
+    int64 durationUs = 1;
+    bytes waveForm   = 2;
+}
+
+message ProfileChangeDetails {
+    message StringChange {
+        string previous = 1;
+        string newValue = 2;
+    }
+
+    message LearnedProfileName {
+        oneof PreviouslyKnownAs {
+            string e164 = 1;
+            string username = 2;
+        }
+    }
+
+    StringChange       profileNameChange            = 1;
+    // Deprecated - Use learnedProfileName instead
+    StringChange       deprecatedLearnedProfileName = 2;
+    LearnedProfileName learnedProfileName           = 3;
+}
+
+message BodyRangeList {
+    message BodyRange {
+        enum Style {
+            BOLD          = 0;
+            ITALIC        = 1;
+            SPOILER       = 2;
+            STRIKETHROUGH = 3;
+            MONOSPACE     = 4;
+        }
+
+        message Button {
+            string label  = 1;
+            string action = 2;
+        }
+
+        int32 start  = 1;
+        int32 length = 2;
+
+        oneof associatedValue {
+            string mentionUuid = 3;
+            Style  style       = 4;
+            string link        = 5;
+            Button button      = 6;
+        }
+    }
+
+    repeated BodyRange ranges = 1;
+}
+
+message CryptoValue {
+  oneof Value {
+    MobileCoinValue mobileCoinValue = 1;
+  }
+
+  message MobileCoinValue {
+    string picoMobileCoin = 1;
+  }
+}
+
+message GroupCallUpdateDetails {
+             string eraId                  = 1;
+             string startedCallUuid        = 2;
+             int64  startedCallTimestamp   = 3;
+    repeated string inCallUuids            = 4;
+             bool   isCallFull             = 5;
+             bool   localUserJoined        = 6;
+             int64  endedCallTimestamp     = 7;
+             bool   isRingingOnLocalDevice = 8;
+}
+
+message ExpiringProfileKeyCredentialColumnData {
+    bytes profileKey           = 1;
+    bytes expiringProfileKeyCredential = 2;
+}
+
+message DeviceLastResetTime {
+    message Pair {
+        int32 deviceId      = 1;
+        int64 lastResetTime = 2;
+    }
+
+    repeated Pair resetTime = 1;
+}
+
+message Wallpaper {
+    message SingleColor {
+        int32 color = 1;
+    }
+
+    message LinearGradient {
+                 float rotation  = 1;
+        repeated int32 colors    = 2;
+        repeated float positions = 3;
+    }
+
+    message File {
+        string uri = 1;
+    }
+
+    oneof wallpaper {
+        SingleColor    singleColor    = 1;
+        LinearGradient linearGradient = 2;
+        File           file           = 3;
+    }
+
+    float dimLevelInDarkTheme = 4;
+}
+
+message ChatColor {
+    message SingleColor {
+        int32 color = 1;
+    }
+
+    message LinearGradient {
+        float rotation  = 1;
+        repeated int32 colors    = 2;
+        repeated float positions = 3;
+    }
+
+    message File {
+        string uri = 1;
+    }
+
+    oneof chatColor {
+        SingleColor    singleColor    = 1;
+        LinearGradient linearGradient = 2;
+    }
+}
+
+message RecipientExtras {
+    bool  manuallyShownAvatar = 1;
+    bool  hideStory           = 2;
+    int64 lastStoryView       = 3;
+}
+
+message CustomAvatar {
+
+    message Text {
+        string text   = 1;
+        string colors = 2;
+    }
+
+    message Vector {
+        string key    = 1;
+        string colors = 2;
+    }
+
+    message Photo {
+        string uri   = 1;
+        int64  size  = 2;
+    }
+
+    oneof avatar {
+        Text   text   = 1;
+        Vector vector = 2;
+        Photo  photo  = 3;
+    }
+}
+
+message StoryTextPost {
+    enum Style {
+        DEFAULT   = 0;
+        REGULAR   = 1;
+        BOLD      = 2;
+        SERIF     = 3;
+        SCRIPT    = 4;
+        CONDENSED = 5;
+    }
+
+    string    body                = 1;
+    Style     style               = 2;
+    int32     textForegroundColor = 3;
+    int32     textBackgroundColor = 4;
+    ChatColor background          = 5;
+}
+
+message GiftBadge {
+    enum RedemptionState {
+        PENDING =  0;
+        STARTED =  1;
+        REDEEMED = 2;
+        FAILED =   3;
+    }
+
+    bytes           redemptionToken = 1;
+    RedemptionState redemptionState = 2;
+}
+
+message SignalStoreList {
+    repeated string contents = 1;
+}
+
+message PendingChangeNumberMetadata {
+    bytes  previousPni                = 1;
+    bytes  pniIdentityKeyPair         = 2;
+    int32  pniRegistrationId          = 3;
+    int32  pniSignedPreKeyId          = 4;
+    int32  pniLastResortKyberPreKeyId = 5;
+    string previousE164               = 6;
+    string newE164                    = 7;
+}
+
+message MessageExportState {
+
+    enum Progress {
+        INIT      = 0;
+        STARTED   = 1;
+        COMPLETED = 2;
+    }
+
+    int64 messageId                      = 1;
+    repeated string startedRecipients    = 2;
+    repeated string completedRecipients  = 3;
+    repeated string startedAttachments   = 4;
+    repeated string completedAttachments = 5;
+    Progress progress                    = 6;
+}
+
+message ThreadMergeEvent {
+    string previousE164 = 1;
+}
+
+message SessionSwitchoverEvent {
+    string e164 = 1;
+}
+
+message DecimalValue {
+    uint32 scale     = 1;
+    uint32 precision = 2;
+    bytes  value     = 3;
+}
+
+message FiatValue {
+    string       currencyCode  = 1;
+    DecimalValue amount        = 2;
+    uint64       timestamp     = 3;
+}
+
+// DEPRECATED -- Replaced with InAppPaymentData.Error message.
+message DonationErrorValue {
+    enum Type {
+        PROCESSOR_CODE = 0; // Generic processor error (e.g. Stripe returned an error code)
+        DECLINE_CODE   = 1; // Stripe or PayPal decline Code
+        FAILURE_CODE   = 2; // Stripe bank transfer failure code
+        REDEMPTION     = 3; // Generic redemption error (status is HTTP code)
+        PAYMENT        = 4; // Generic payment error (status is HTTP code)
+        VALIDATION     = 5; // Failed while trying to validate the ReceiptCredential returned from the service.
+    }
+
+    Type   type = 1;
+    string code = 2;
+}
+
+/**
+ * Contains all the extra information required to appropriately
+ * manage the lifecycle of transactions.
+ */
+message InAppPaymentData {
+
+    enum PaymentMethodType {
+        UNKNOWN             = 0;
+        GOOGLE_PAY          = 1;
+        CARD                = 2;
+        SEPA_DEBIT          = 3;
+        IDEAL               = 4;
+        PAYPAL              = 5;
+        GOOGLE_PLAY_BILLING = 6;
+    }
+
+    /**
+     * This mirrors ActiveSubscription.ChargeFailure
+     */
+    message ChargeFailure {
+        string code                 = 1;
+        string message              = 2;
+        string outcomeNetworkStatus = 3;
+        string outcomeNetworkReason = 4;
+        string outcomeType          = 5;
+    }
+
+    message Cancellation {
+        enum Reason {
+            UNKNOWN           = 0;
+            MANUAL            = 1;
+            PAST_DUE          = 2;
+            CANCELED          = 3;
+            UNPAID            = 4;
+            USER_WAS_INACTIVE = 5;
+        }
+
+                 Reason        reason            = 1; // Why the cancellation happened
+        optional ChargeFailure chargeFailure     = 2; // A charge failure, if available.
+    }
+
+    message WaitingForAuthorizationState {
+        string stripeIntentId      = 1;
+        string stripeClientSecret  = 2;
+        bool   checkedVerification = 3;
+    }
+
+    message RedemptionState {
+        enum Stage {
+            INIT               = 0;
+            CONVERSION_STARTED = 1;
+            REDEMPTION_STARTED = 2;
+            REDEEMED           = 3;
+        }
+
+                 Stage  stage                           = 1;
+        optional string paymentIntentId                 = 2; // Only present for one-time donations.
+        optional bool   keepAlive                       = 3; // Only present for recurring donations, specifies this redemption started from a keep-alive
+        optional bytes  receiptCredentialRequestContext = 4; // Reusable context for retrieving a presentation
+        optional bytes  receiptCredentialPresentation   = 5; // Redeemable presentation
+    }
+
+    message StripeRequiresActionState {
+                 string uri                 = 1; // URI to navigate the user to in a webview
+                 string returnUri           = 2; // URI to return to the app with if the user moves to an external location
+                 string stripeIntentId      = 3; // Passed to same field in waiting for auth
+                 string stripeClientSecret  = 4; // Passed to same field in waiting for auth
+        optional string paymentMethodId     = 5; // Nullable payment method id
+    }
+
+    message StripeActionCompleteState {
+                 string stripeIntentId      = 3; // Passed to same field in waiting for auth
+                 string stripeClientSecret  = 4; // Passed to same field in waiting for auth
+        optional string paymentMethodId     = 5; // Nullable payment method id
+    }
+
+    message PayPalRequiresActionState {
+        string approvalUrl = 1;
+        string token       = 2;
+    }
+
+    message PayPalActionCompleteState {
+        string payerId      = 1;
+        string paymentId    = 2;
+        string paymentToken = 3;
+    }
+
+    message Error {
+        enum Type {
+            UNKNOWN                        = 0;  // A generic, untyped error. Check log for details.
+            GOOGLE_PAY_REQUEST_TOKEN       = 1;  // Google pay failed to give us a request token.
+            INVALID_GIFT_RECIPIENT         = 2;  // Selected recipient for gift is invalid.
+            ONE_TIME_AMOUNT_TOO_SMALL      = 3;  // One-time payment amount is below minimum
+            ONE_TIME_AMOUNT_TOO_LARGE      = 4;  // One-time payment amount is too large
+            INVALID_CURRENCY               = 5;  // One-time payment currency is invalid
+            PAYMENT_SETUP                  = 6;  // A generic payment setup error (prior to charging the user)
+            STRIPE_CODED_ERROR             = 7;  // Stripe error containing a stripe error code in data.
+            STRIPE_DECLINED_ERROR          = 8;  // Stripe error containing a decline error code in data.
+            STRIPE_FAILURE                 = 9;  // Stripe error containing a failure error code in data.
+            PAYPAL_CODED_ERROR             = 10; // PayPal error containing a paypal error code in data.
+            PAYPAL_DECLINED_ERROR          = 11; // PayPal error containing a paypal decline code in data.
+            PAYMENT_PROCESSING             = 12; // Generic payment error containing an HTTP status code in data.
+            CREDENTIAL_VALIDATION          = 13; // Failed to validate credential returned from service.
+            REDEMPTION                     = 14; // Failed during badge redemption containing an HTTP status code in data if available.
+            SETUP_CANCELLED                = 15; // After an authorization attempt, the intent is still not set up correctly.
+        }
+
+                 Type   type = 1;
+        optional string data = 2;
+    }
+
+    optional BadgeList.Badge   badge             = 1; // The badge. Not present for backups transactions
+             FiatValue         amount            = 2; // The amount the user paid for the transaction
+    optional Error             error             = 3; // An error, if present.
+             int64             level             = 4; // The transaction "level" given to us by the server
+    optional Cancellation      cancellation      = 5; // The transaction was cancelled. This notes why.
+             reserved                              6; // removed: Descriptive text about the token
+    optional string            recipientId       = 7; // The target recipient the token is to be sent to (only used for gifts)
+    optional string            additionalMessage = 8; // The additional message to send the target recipient (only used for gifts)
+             PaymentMethodType paymentMethodType = 9; // The method through which this in app payment was made
+
+    oneof redemptionState {
+        WaitingForAuthorizationState waitForAuth          = 10; // Waiting on user authorization from an external source (3DS, iDEAL)
+        RedemptionState              redemption           = 11; // Waiting on processing of token
+        StripeRequiresActionState    stripeRequiresAction = 12; // Waiting on required user action, user has not navigated away from app.
+        StripeActionCompleteState    stripeActionComplete = 13; // Stripe action completed.
+        PayPalRequiresActionState    payPalRequiresAction = 14; // Waiting on required user action, user has not navigated away from app.
+        PayPalActionCompleteState    payPalActionComplete = 15; // PayPal action completed.
+    }
+}
+
+// DEPRECATED -- Move to TokenTransactionData
+message PendingOneTimeDonation {
+    enum PaymentMethodType {
+        CARD       = 0;
+        SEPA_DEBIT = 1;
+        PAYPAL     = 2;
+        IDEAL      = 3;
+    }
+
+             PaymentMethodType  paymentMethodType   = 1;
+             FiatValue          amount              = 2;
+             BadgeList.Badge    badge               = 3;
+             int64              timestamp           = 4;
+    optional DonationErrorValue error               = 5;
+             bool               pendingVerification = 6;
+             bool               checkedVerification = 7;
+}
+
+/**
+ * Contains the data necessary to show the corresponding terminal sheet
+ * for a given donation. Note that the word "terminal" here is used in
+ * the same way that it is used in Rx, where we simply mean that, regardless
+ * of outcome, a donation has completed processing.
+ */
+// DEPRECATED -- Move to TokenTransactionData
+message TerminalDonationQueue {
+    message TerminalDonation {
+                 int64              level                      = 1;
+                 bool               isLongRunningPaymentMethod = 2;
+        optional DonationErrorValue error                      = 3;
+    }
+
+    repeated TerminalDonation terminalDonations = 1;
+}
+
+/**
+ * Contains the data necessary to complete a transaction after the
+ * user completes authorization externally. This helps prevent
+ * scenarios where the application dies while the user is confirming
+ * a transaction in their bank app.
+ */
+// DEPRECATED -- Move to TokenTransactionData
+message ExternalLaunchTransactionState {
+
+    message StripeIntentAccessor {
+        enum Type {
+            PAYMENT_INTENT = 0;
+            SETUP_INTENT   = 1;
+        }
+
+        Type type                 = 1;
+        string intentId           = 2;
+        string intentClientSecret = 3;
+    }
+
+    message GatewayRequest {
+        enum InAppPaymentType {
+            RECURRING_DONATION = 0;
+            ONE_TIME_DONATION  = 1;
+            ONE_TIME_GIFT      = 2;
+            RECURRING_BACKUPS  = 3;
+        }
+
+        InAppPaymentType inAppPaymentType  = 1;
+        BadgeList.Badge  badge             = 2;
+        reserved                             3; // removed field label
+        DecimalValue     price             = 4;
+        string           currencyCode      = 5;
+        int64            level             = 6;
+        int64            recipient_id      = 7;
+        string           additionalMessage = 8;
+    }
+
+    StripeIntentAccessor stripeIntentAccessor = 1;
+    GatewayRequest       gatewayRequest       = 2;
+    string               paymentSourceType    = 3;
+}
+
+message MessageExtras {
+    oneof extra {
+        GV2UpdateDescription gv2UpdateDescription = 1;
+        signalservice.GroupContext gv1Context = 2;
+        ProfileChangeDetails profileChangeDetails = 3;
+        PaymentTombstone paymentTombstone = 4;
+        PollTerminate pollTerminate = 5;
+        PinnedMessage pinnedMessage = 6;
+        AdminDeleteStatus adminDeleteStatus = 7;
+    }
+}
+
+message GV2UpdateDescription {
+    optional DecryptedGroupV2Context gv2ChangeDescription = 1;
+    backup.GroupChangeChatUpdate groupChangeUpdate = 2;
+}
+
+message PaymentTombstone {
+    optional string note = 1;
+    CryptoValue amount = 2;
+    CryptoValue fee = 3;
+}
+
+message AdminDeleteStatus {
+    enum Status {
+        PENDING = 0;
+        DONE = 1;
+        FAILED = 2;
+    }
+    Status status = 1;
+}
+
+message PollTerminate {
+    string question = 1;
+    uint64 messageId = 2;
+    uint64 targetTimestamp = 3;
+}
+
+message PinnedMessage {
+    uint64 pinnedMessageId = 1;
+    bytes targetAuthorAci = 2;
+    uint64 targetTimestamp = 3;
+    uint64 pinDurationInSeconds = 4; // Long.MAX_VALUE if pin is forever
+}
+
+message LocalRegistrationMetadata {
+    bytes aciIdentityKeyPair = 1;
+    bytes aciSignedPreKey = 2;
+    bytes aciLastRestoreKyberPreKey = 3;
+    bytes pniIdentityKeyPair = 4;
+    bytes pniSignedPreKey = 5;
+    bytes pniLastRestoreKyberPreKey = 6;
+    string aci = 7;
+    string pni = 8;
+    bool hasPin = 9;
+    optional string pin = 10;
+    optional bytes masterKey = 11;
+    string e164 = 12;
+    bool fcmEnabled = 13;
+    string fcmToken = 14;
+    bytes profileKey = 15;
+    string servicePassword = 16;
+    bool reglockEnabled = 17;
+    LinkedDeviceInfo linkedDeviceInfo = 18;
+}
+
+message LinkedDeviceInfo {
+    uint32 deviceId = 1;
+    string deviceName = 2;
+    optional bytes ephemeralBackupKey = 3;
+    optional string accountEntropyPool = 4;
+    optional bytes mediaRootBackupKey = 5;
+}
+
+message RestoreDecisionState {
+    enum State {
+        START = 0;
+        INTEND_TO_RESTORE = 1;
+        NEW_ACCOUNT = 2;
+        SKIPPED = 3;
+        COMPLETED = 4;
+    }
+
+    message IntendToRestoreData {
+        bool hasOldDevice = 1;
+        optional bool fromRemote = 2;
+        optional bool fromLocalV2 = 3;
+    }
+
+    State decisionState = 1;
+    optional IntendToRestoreData intendToRestoreData = 2;
+}
