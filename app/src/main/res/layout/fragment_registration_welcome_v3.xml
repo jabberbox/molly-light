@@ -1,20 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- LIGHT-STYLE PASS: root was a bare ConstraintLayout with no scroll container.
+     "title" had no top anchor at all; its position was chained backward from the
+     bottom button stack (title -> terms_button -> continue_button ->
+     transfer_button -> link -> parent bottom). If that chain's combined natural
+     height exceeded the actual screen height (confirmed on a real LP3), title got
+     pushed to a negative Y position with nothing to scroll to recover it; the
+     headline text rendered partially above the visible screen, permanently.
+     Wrapped in a ScrollView (fillViewport so it still looks right on screens
+     where everything already fits) as a fallback, and anchored title directly
+     below the toolbar so its position no longer depends on a chain of
+     fixed-size elements below it. The original design had a decorative hero
+     image above the headline; removed per product decision, since it wasn't
+     earning its keep and the extra vertical space it demanded was the main
+     reason this screen needed scrolling on the LP3's compact display in the
+     first place. -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
-    <ImageView
-        android:id="@+id/image"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_margin="16dp"
-        android:importantForAccessibility="no"
-        android:src="@drawable/welcome"
-        app:layout_constraintBottom_toTopOf="@+id/title"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
@@ -27,20 +35,23 @@
         android:id="@+id/title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="40dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="16dp"
         android:gravity="center"
         android:text="@string/RegistrationActivity_take_privacy_with_you_be_yourself_in_every_message"
         android:textAppearance="@style/Signal.Text.HeadlineMedium"
+        app:layout_constraintTop_toBottomOf="@+id/toolbar"
         app:layout_constraintBottom_toTopOf="@+id/welcome_terms_button"
         app:layout_constraintEnd_toEndOf="@+id/welcome_continue_button"
-        app:layout_constraintStart_toStartOf="@+id/welcome_continue_button" />
+        app:layout_constraintStart_toStartOf="@+id/welcome_continue_button"
+        app:layout_constraintVertical_bias="0" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/welcome_terms_button"
         style="@style/Signal.Widget.Button.Large.Secondary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
+        android:layout_marginBottom="8dp"
         android:gravity="center"
         android:text="@string/RegistrationActivity_terms_and_privacy"
         android:textColor="?attr/colorOnSurfaceVariant"
@@ -55,7 +66,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="32dp"
         android:layout_marginEnd="32dp"
-        android:layout_marginBottom="17dp"
+        android:layout_marginBottom="4dp"
         android:text="@string/RegistrationActivity_continue"
         app:layout_constraintBottom_toTopOf="@id/welcome_transfer_or_restore"
         app:layout_constraintEnd_toEndOf="parent"
@@ -68,7 +79,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="32dp"
         android:layout_marginEnd="32dp"
-        android:layout_marginBottom="17dp"
+        android:layout_marginBottom="4dp"
         app:backgroundTint="?attr/colorSurfaceContainer"
         android:text="@string/registration_activity__restore_or_transfer"
         app:layout_constraintBottom_toTopOf="@+id/link"
@@ -82,7 +93,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="32dp"
         android:layout_marginEnd="32dp"
-        android:layout_marginBottom="48dp"
+        android:layout_marginBottom="24dp"
         app:backgroundTint="?attr/colorSurfaceContainer"
         android:text="@string/RegistrationActivity_link_device"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -90,3 +101,5 @@
         app:layout_constraintStart_toStartOf="@+id/welcome_transfer_or_restore" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.core.widget.NestedScrollView>

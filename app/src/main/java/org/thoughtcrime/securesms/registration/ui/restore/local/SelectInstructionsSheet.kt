@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,7 +34,12 @@ import org.thoughtcrime.securesms.R
 fun SelectYourBackupFolderSheetContent(
   onContinueClick: () -> Unit
 ) {
-  Column {
+  // LIGHT-STYLE PASS: this Column had no scroll modifier, so on a screen shorter than
+  // whatever Signal's designers assumed, the Continue button (last in the column) got
+  // pushed below the visible sheet bounds with no way to reach it. Confirmed via a
+  // real report: someone installing on an LP3 got stuck on this exact screen during
+  // restore, unable to scroll down to tap Continue.
+  Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
     SelectInstructionsSheetContent(
       title = stringResource(R.string.SelectInstructionsSheet__select_your_backup_folder),
       onContinueClick = onContinueClick
@@ -54,7 +61,9 @@ fun SelectYourBackupFolderSheetContent(
 fun SelectYourBackupFileSheetContent(
   onContinueClick: () -> Unit
 ) {
-  Column {
+  // LIGHT-STYLE PASS: see SelectYourBackupFolderSheetContent above -- same missing
+  // scroll modifier, same fix.
+  Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
     SelectInstructionsSheetContent(
       title = stringResource(R.string.SelectInstructionsSheet__select_your_backup_file),
       onContinueClick = onContinueClick

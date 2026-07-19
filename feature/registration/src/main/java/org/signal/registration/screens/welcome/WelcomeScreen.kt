@@ -23,10 +23,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -145,14 +148,25 @@ private fun CompactLayout(
       .fillMaxSize()
       .testTag(TestTags.WELCOME_SCREEN),
     content = {
+      // LIGHT-STYLE PASS: this Column had no scroll modifier, and HeroImage used
+      // weight(1f) to claim all leftover vertical space. RegistrationScaffold forces
+      // this whole content area into an exact remaining-height box (screen height
+      // minus footer), with no fallback for screens shorter than assumed -- on the
+      // LP3 that meant the headline text got squeezed/pushed above the visible top
+      // edge, confirmed via a real screenshot from someone installing on one.
+      // weight() doesn't work inside a scrollable container (it needs bounded
+      // height, scroll gives unbounded height), so HeroImage is capped to a fixed
+      // max height instead of claiming "whatever's left."
       Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+          .fillMaxSize()
+          .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
       ) {
         HeroImage(
           modifier = Modifier
-            .weight(1f)
             .fillMaxWidth()
+            .heightIn(max = 240.dp)
             .padding(16.dp)
         )
 
