@@ -15,16 +15,6 @@ A minimal reskin of Molly, inspired by the [Light Phone III](https://www.theligh
 > Signal contacts and account. For the official, actively-maintained app, see
 > upstream: [mollyim/mollyim-android](https://github.com/mollyim/mollyim-android).
 
-## Why
-
-Signal's UI is a lot of screen. A text box that's always there, a row of
-icons, everything visible all the time. The Light Phone does the opposite:
-show what you need, when you need it, and stay out of the way otherwise.
-
-This fork rebuilds the conversation screen around that. No always-on text
-box. Composing a message is its own full-screen action, not a row sitting
-at the bottom of every chat.
-
 ## Screenshots
 
 <table>
