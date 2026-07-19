@@ -51,7 +51,6 @@ import org.thoughtcrime.securesms.megaphone.Megaphones
 import org.thoughtcrime.securesms.notifications.profiles.NotificationProfile
 import org.thoughtcrime.securesms.recipients.Recipient
 import org.thoughtcrime.securesms.recipients.RecipientId
-import org.thoughtcrime.securesms.stories.Stories
 import org.thoughtcrime.securesms.stories.StoriesBackStack
 import org.thoughtcrime.securesms.util.delegate
 import org.thoughtcrime.securesms.window.AppScaffoldNavigator
@@ -426,7 +425,16 @@ class MainNavigationViewModel(
   }
 
   fun refreshNavigationBarState() {
-    internalMainNavigationState.update { it.copy(compact = SignalStore.settings.useCompactNavigationBar, isStoriesFeatureEnabled = Stories.isFeatureEnabled()) }
+    // LIGHT-STYLE PASS: Stories tab dropped entirely from this reskin. Its tab icon
+    // and the trailing per-tab action icon both render as a plain camera glyph
+    // (see MainNavigationBar in MainNavigation.kt); that distinction only reads
+    // correctly with stock Signal's floating-FAB treatment, and our flattened
+    // single-row bottom bar surfaced it as two identical camera icons side by
+    // side (reported by a tester). Rather than patch around that collision,
+    // Stories doesn't fit the minimal Light Phone direction this fork is going
+    // for, so it's hidden outright instead of deferring to the per-account
+    // Stories.isFeatureEnabled() toggle.
+    internalMainNavigationState.update { it.copy(compact = SignalStore.settings.useCompactNavigationBar, isStoriesFeatureEnabled = false) }
   }
 
   fun getNotificationProfiles(): Flow<List<NotificationProfile>> {

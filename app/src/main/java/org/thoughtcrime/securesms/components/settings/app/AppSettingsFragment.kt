@@ -347,17 +347,10 @@ private fun AppSettingsContent(
           )
         }
 
-        item {
-          Rows.TextRow(
-            text = stringResource(R.string.preferences__stories),
-            icon = painterResource(R.drawable.symbol_stories_24),
-            onClick = {
-              callbacks.navigate(AppSettingsRoute.StoriesRoute.Privacy(titleId = R.string.preferences__stories))
-            },
-            enabled = isRegisteredAndUpToDate
-          )
-        }
-
+        // LIGHT-STYLE PASS: the "Stories" settings row (and the on/off toggle it led
+        // to) removed along with the Stories tab itself -- see MainNavigationViewModel
+        // for why the tab is hidden. Leaving a dead settings entry that opens a
+        // feature with no way to reach it otherwise would just be confusing.
         item {
           Rows.TextRow(
             text = stringResource(R.string.preferences__notifications),
