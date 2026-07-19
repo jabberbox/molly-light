@@ -288,6 +288,17 @@ class MainActivity :
     // FLAG_SECURE case), so setting it to the app's actual background color closes
     // that gap without weakening the security flag itself. Builder API is 28+;
     // minSdk here is 27, so this silently no-ops on that one old version.
+    //
+    // Known gap: this renders correctly on stock AOSP (verified via a Recents
+    // screenshot on Android 14 -- solid black card, no white anywhere), but the
+    // white flash was still reported on a real LP3. Same Android version and API
+    // level as the AOSP test, so it's not a platform-version gap -- LightOS ships
+    // its own customized Recents/SystemUI (per its build fingerprint), which
+    // appears not to honor TaskDescription's background color for FLAG_SECURE
+    // snapshot fallbacks the way stock Android does. This is the correct,
+    // standard API for the job; the remaining flash on LP3 hardware is a LightOS
+    // platform limitation, not something fixable from here. Accepted as a known
+    // trade-off rather than disabling screen security to work around it.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
       setTaskDescription(
         ActivityManager.TaskDescription.Builder()
