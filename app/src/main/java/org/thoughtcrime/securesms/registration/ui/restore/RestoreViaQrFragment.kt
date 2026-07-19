@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -225,10 +226,14 @@ private fun RestoreViaQrScreen(
           .padding(40.dp)
       ) {
         SignalTheme(isDarkMode = false) {
+          // LIGHT-STYLE PASS: hardcoded white rather than MaterialTheme.colorScheme.surface.
+          // See RegisterLinkDeviceQrFragment for the full explanation -- this reskin's
+          // molly_surface_light is true black (same as dark mode), which broke this
+          // screen's isDarkMode = false override and made the QR code unscannable.
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(12.dp))
-              .background(MaterialTheme.colorScheme.surface)
+              .background(Color.White)
               .fillMaxWidth()
               .fillMaxHeight()
               .padding(16.dp),

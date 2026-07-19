@@ -159,10 +159,17 @@ private fun RegisterLinkDeviceQrScreen(
           .padding(40.dp)
       ) {
         SignalTheme(isDarkMode = false) {
+          // LIGHT-STYLE PASS: hardcoded white rather than MaterialTheme.colorScheme.surface.
+          // This reskin sets molly_surface_light to true black (same as dark mode) as
+          // part of the app-wide monochrome look, which broke this screen specifically:
+          // a QR code needs real light/dark contrast to be scannable, and the
+          // isDarkMode = false wrapper above stopped producing an actual light surface.
+          // A tester confirmed their primary device's camera couldn't read the code
+          // until this was forced back to white.
           Box(
             modifier = Modifier
               .clip(RoundedCornerShape(12.dp))
-              .background(MaterialTheme.colorScheme.surface)
+              .background(Color.White)
               .fillMaxWidth()
               .fillMaxHeight()
               .padding(16.dp),
