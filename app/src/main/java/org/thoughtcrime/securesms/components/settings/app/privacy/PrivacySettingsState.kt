@@ -9,6 +9,7 @@ data class PrivacySettingsState(
   val passphraseLockTriggerValues: Set<String>,
   val passphraseLockTimeout: Long,
   val biometricScreenLock: Boolean,
+  val pinLock: Boolean,
   val screenSecurity: Boolean,
   val incognitoKeyboard: Boolean,
   val universalExpireTimer: Int

@@ -382,18 +382,25 @@ public final class MediaOverviewPageFragment extends LoggingFragment
   }
 
   private static void showFileExternally(@NonNull Context context, @NonNull MediaTable.MediaRecord mediaRecord) {
-      Uri uri = mediaRecord.getAttachment().getUri();
-
+    Uri uri = mediaRecord.getAttachment().getUri();
+    Uri publicUri = PartAuthority.getAttachmentPublicUri(uri);
+    String contentType = mediaRecord.getContentType();
+    if ("application/pdf".equals(contentType)) {
+      context.startActivity(org.thoughtcrime.securesms.util.PdfViewerActivity.getIntent(context, publicUri, null));
+    } else if (contentType != null && contentType.startsWith("image/")) {
       Intent intent = new Intent(Intent.ACTION_VIEW);
       intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-      intent.setDataAndType(PartAuthority.getAttachmentPublicUri(uri), mediaRecord.getContentType());
+      intent.setDataAndType(publicUri, contentType);
       try {
         context.startActivity(intent);
       } catch (ActivityNotFoundException e) {
         Log.w(TAG, "No activity existed to view the media.");
         Toast.makeText(context, R.string.ConversationItem_unable_to_open_media, Toast.LENGTH_LONG).show();
       }
+    } else {
+      Toast.makeText(context, R.string.attachment_type_not_supported, Toast.LENGTH_LONG).show();
     }
+  }
 
   private static @Nullable String parseLinkUrl(@NonNull String linkPreviewJson) {
     try {

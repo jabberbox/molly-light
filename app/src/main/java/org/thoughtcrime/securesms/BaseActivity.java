@@ -38,6 +38,7 @@ public abstract class BaseActivity extends AppCompatActivity {
 
   private boolean lockScreenState;
   private boolean biometricPromptLaunched;
+  private boolean pinLockLaunched;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -77,7 +78,23 @@ public abstract class BaseActivity extends AppCompatActivity {
   public void onTopResumedActivityChanged(boolean isTopResumedActivity) {
     boolean isTopOfTask = isTopResumedActivity && !isFinishing();
     if (isTopOfTask && lockScreenState && useScreenLock()) {
-      showBiometricPromptForAuthentication(!hasShowWhenLockedWindow());
+      if (TextSecurePreferences.isPinLockEnabled(this) && !pinLockLaunched) {
+        pinLockLaunched = true;
+        org.thoughtcrime.securesms.biometric.PinLockDialogFragment.show(
+            getSupportFragmentManager(),
+            new org.thoughtcrime.securesms.biometric.PinLockDialogFragment.Listener() {
+              @Override public void onSuccess() {
+                pinLockLaunched = false;
+                onPostResume(false);
+              }
+              @Override public void onCancel() {
+                pinLockLaunched = false;
+                onAuthenticationCancel();
+              }
+            });
+      } else if (!TextSecurePreferences.isPinLockEnabled(this)) {
+        showBiometricPromptForAuthentication(!hasShowWhenLockedWindow());
+      }
     }
   }
 
@@ -85,6 +102,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     this.lockScreenState = screenLocked;
 
     if (!screenLocked) {
+      pinLockLaunched = false;
       ScreenLockController.unBlankScreen();
       if (getWindow() != null) {
         onWindowAttributesChanged(getWindow().getAttributes());

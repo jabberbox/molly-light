@@ -68,6 +68,11 @@ class PrivacySettingsViewModel(
     refresh()
   }
 
+  fun setPinLockEnabled(enabled: Boolean) {
+    TextSecurePreferences.setPinLockEnabled(application, enabled)
+    refresh()
+  }
+
   fun setScreenSecurityEnabled(enabled: Boolean) {
     sharedPreferences.edit().putBoolean(TextSecurePreferences.SCREEN_SECURITY_PREF, enabled).apply()
     refresh()
@@ -92,6 +97,7 @@ class PrivacySettingsViewModel(
       passphraseLockTriggerValues = TextSecurePreferences.getPassphraseLockTrigger(application).triggers,
       passphraseLockTimeout = TextSecurePreferences.getPassphraseLockTimeout(application),
       biometricScreenLock = TextSecurePreferences.isBiometricScreenLockEnabled(application),
+      pinLock = TextSecurePreferences.isPinLockEnabled(application),
       screenSecurity = TextSecurePreferences.isScreenSecurityEnabled(application),
       incognitoKeyboard = TextSecurePreferences.isIncognitoKeyboardEnabled(application),
       universalExpireTimer = SignalStore.settings.universalExpireTimer

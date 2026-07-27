@@ -441,6 +441,22 @@
             android:windowSoftInputMode="stateHidden" />
 
         <activity
+            android:name=".util.RestrictedWebViewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".util.PdfViewerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar" />
+
+        <activity
+            android:name=".util.PinSetupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Signal.DayNight.NoActionBar"
+            android:windowSoftInputMode="stateHidden" />
+
+        <activity
             android:name=".giph.ui.GiphyActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize"
             android:exported="false"

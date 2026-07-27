@@ -138,6 +138,7 @@ import org.thoughtcrime.securesms.util.SignalLocalMetrics;
 import org.thoughtcrime.securesms.util.SignalUncaughtExceptionHandler;
 import org.thoughtcrime.securesms.util.SqlCipherLogTarget;
 import org.thoughtcrime.securesms.util.SupportEmailUtil;
+import org.thoughtcrime.securesms.util.PinLockStorage;
 import org.thoughtcrime.securesms.util.TextSecurePreferences;
 import org.thoughtcrime.securesms.util.dynamiclanguage.DynamicLanguageContextWrapper;
 import org.whispersystems.signalservice.api.websocket.SignalWebSocket;
@@ -192,7 +193,10 @@ public class ApplicationContext extends Application implements AppForegroundObse
     SqlCipherLibraryLoader.load();
     EventBus.builder().logNoSubscriberMessages(false).installDefaultEventBus();
     DynamicTheme.setDefaultDayNightMode(this);
-    ScreenLockController.enableAutoLock(TextSecurePreferences.isBiometricScreenLockEnabled(this));
+    boolean pinLockEnabled = PinLockStorage.INSTANCE.hasPin(this);
+    ScreenLockController.enableAutoLock(
+        TextSecurePreferences.isBiometricScreenLockEnabled(this) || pinLockEnabled);
+    ScreenLockController.setLockImmediately(pinLockEnabled);
     AppDependencies.installDependencyProviders();
 
     initializePassphraseLock();

@@ -31,6 +31,10 @@ object ScreenLockController {
   var autoLock: Boolean = false
     private set
 
+  // When true, no grace period is applied on background — lock fires immediately on return.
+  @JvmStatic
+  var lockImmediately: Boolean = false
+
   @JvmStatic
   var lockScreenAtStart: Boolean = false
 
@@ -67,10 +71,18 @@ object ScreenLockController {
     lockScreenAtStart = enabled
   }
 
+  // Enables auto-lock for future background events without immediately locking the current session.
+  @JvmStatic
+  fun enableAutoLockSilently(enabled: Boolean) {
+    Log.d(TAG, "Auto-lock silently ${if (enabled) "enabled" else "disabled"}")
+    autoLock = enabled
+  }
+
   @JvmStatic
   fun onAppBackgrounded(context: Context) {
     if (autoLock) {
-      startScreenLock(timeoutFor(context) - APP_BACKGROUNDED_EVENT_DELAY_MS)
+      val timeout = if (lockImmediately) 0 else timeoutFor(context) - APP_BACKGROUNDED_EVENT_DELAY_MS
+      startScreenLock(timeout)
       clearReplyActionFromNotifications(context)
     }
   }

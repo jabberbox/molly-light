@@ -376,6 +376,9 @@
     <string name="ConversationItem_click_to_approve_unencrypted_mms_dialog_title">Fallback to unencrypted MMS?</string>
     <string name="ConversationItem_click_to_approve_unencrypted_dialog_message">This message will <b>not</b> be encrypted because the recipient is no longer a Signal user.\n\nSend unsecured message?</string>
     <string name="ConversationItem_unable_to_open_media">Can\'t find an app able to open this media.</string>
+    <string name="attachment_type_not_supported">Attachment type not supported</string>
+    <string name="preferences__pin_lock">PIN Lock</string>
+    <string name="preferences__pin_lock_summary">Lock Molly with a 4-digit PIN, independent of Android security</string>
     <string name="ConversationItem_copied_text">Copied %s</string>
     <string name="ConversationItem_from_s">from %s</string>
     <!-- Footer shown in legacy SMS message where %s is the name of the recipient the message is going to -->

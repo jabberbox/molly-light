@@ -2814,14 +2814,21 @@ public final class ConversationItem extends RelativeLayout implements BindableCo
         Log.i(TAG, "Clicked: " + slide.getUri() + " , " + slide.getContentType());
         Uri publicUri = PartAuthority.getAttachmentPublicUri(slide.getUri());
         Log.i(TAG, "Public URI: " + publicUri);
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.setDataAndType(PartAuthority.getAttachmentPublicUri(slide.getUri()), Intent.normalizeMimeType(slide.getContentType()));
-        try {
-          context.startActivity(intent);
-        } catch (ActivityNotFoundException anfe) {
-          Log.w(TAG, "No activity existed to view the media.");
-          Toast.makeText(context, R.string.ConversationItem_unable_to_open_media, Toast.LENGTH_LONG).show();
+        String normalizedType = Intent.normalizeMimeType(slide.getContentType());
+        if ("application/pdf".equals(normalizedType)) {
+          context.startActivity(org.thoughtcrime.securesms.util.PdfViewerActivity.getIntent(context, publicUri, slide.getFileName().orElse(null)));
+        } else if (normalizedType != null && normalizedType.startsWith("image/")) {
+          Intent intent = new Intent(Intent.ACTION_VIEW);
+          intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          intent.setDataAndType(publicUri, normalizedType);
+          try {
+            context.startActivity(intent);
+          } catch (ActivityNotFoundException anfe) {
+            Log.w(TAG, "No activity existed to view the media.");
+            Toast.makeText(context, R.string.ConversationItem_unable_to_open_media, Toast.LENGTH_LONG).show();
+          }
+        } else {
+          Toast.makeText(context, R.string.attachment_type_not_supported, Toast.LENGTH_LONG).show();
         }
       } else if (slide.asAttachment().isMediaNoLongerAvailableForDownload() && !SignalStore.backup().backsUpMedia()) {
         Log.i(TAG, "Clicked unavailable media, attempting to display sheet.");

@@ -65,6 +65,7 @@ class PrivacySettingsFragment : DSLSettingsFragment(R.string.preferences__privac
   override fun onResume() {
     super.onResume()
     viewModel.refreshBlockedCount()
+    viewModel.refresh()
   }
 
   override fun bindAdapter(adapter: MappingAdapter) {
@@ -228,6 +229,20 @@ class PrivacySettingsFragment : DSLSettingsFragment(R.string.preferences__privac
         isChecked = state.biometricScreenLock,
         onClick = {
           onBiometricScreenLockClicked(!state.biometricScreenLock)
+        }
+      )
+
+      switchPref(
+        title = DSLSettingsText.from(R.string.preferences__pin_lock),
+        summary = DSLSettingsText.from(R.string.preferences__pin_lock_summary),
+        isChecked = state.pinLock,
+        onToggle = { _ ->
+          if (!state.pinLock) {
+            startActivity(org.thoughtcrime.securesms.util.PinSetupActivity.getIntentForSetup(requireContext()))
+          } else {
+            startActivity(org.thoughtcrime.securesms.util.PinSetupActivity.getIntentForDisable(requireContext()))
+          }
+          false
         }
       )
 

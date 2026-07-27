@@ -3734,8 +3734,7 @@ class ConversationFragment :
     }
 
     override fun onLinkPreviewClicked(linkPreview: LinkPreview) {
-      val activity = activity ?: return
-      CommunicationActions.openBrowserLink(activity, linkPreview.url)
+      startActivity(org.thoughtcrime.securesms.util.RestrictedWebViewActivity.getIntent(requireContext(), linkPreview.url))
     }
 
     override fun onQuotedIndicatorClicked(messageRecord: MessageRecord) {
@@ -4106,7 +4105,13 @@ class ConversationFragment :
     override fun onScheduledIndicatorClicked(view: View, conversationMessage: ConversationMessage) = Unit
 
     override fun onUrlClicked(url: String): Boolean {
-      return CommunicationActions.handlePotentialGroupLinkUrl(requireActivity(), url)
+      if (CommunicationActions.handlePotentialGroupLinkUrl(requireActivity(), url)) return true
+      val scheme = android.net.Uri.parse(url).scheme?.lowercase()
+      if (scheme == "http" || scheme == "https") {
+        startActivity(org.thoughtcrime.securesms.util.RestrictedWebViewActivity.getIntent(requireContext(), url))
+        return true
+      }
+      return false
     }
 
     override fun goToMediaPreview(parent: ConversationItem, sharedElement: View, args: MediaIntentFactory.MediaPreviewArgs) {

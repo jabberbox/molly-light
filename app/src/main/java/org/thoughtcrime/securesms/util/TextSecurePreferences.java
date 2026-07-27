@@ -112,6 +112,7 @@ public class TextSecurePreferences {
   public  static final String PASSPHRASE_LOCK_TRIGGER       = "pref_passphrase_lock_trigger";
   public  static final String PASSPHRASE_LOCK_NOTIFICATIONS = "pref_passphrase_lock_notifications";
   public  static final String BIOMETRIC_SCREEN_LOCK         = "pref_biometric_screen_lock";
+  public  static final String PIN_LOCK_ENABLED              = "pref_pin_lock_enabled";
 
   private static final String NETWORK_CONFIG_SEEN = "pref_network_config_seen";
 
@@ -405,6 +406,14 @@ public class TextSecurePreferences {
 
   public static void setBiometricScreenLockEnabled(@NonNull Context context, boolean value) {
     setBooleanPreference(context, BIOMETRIC_SCREEN_LOCK, value);
+  }
+
+  public static boolean isPinLockEnabled(@NonNull Context context) {
+    return getBooleanPreference(context, PIN_LOCK_ENABLED, false);
+  }
+
+  public static void setPinLockEnabled(@NonNull Context context, boolean value) {
+    setBooleanPreference(context, PIN_LOCK_ENABLED, value);
   }
 
   /**
