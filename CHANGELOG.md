@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6 (2026-07-27)
+
+### Fixed
+- **PIN keypad cut off at larger display sizes** — keypad rows now use proportional weight-based heights instead of fixed padding, so all 12 keys are visible at any Android display size setting.
+
+---
+
 ## 1.5 (2026-07-27)
 
 ### Added

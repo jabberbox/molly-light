@@ -69,7 +69,7 @@ class PinLockDialogFragment : DialogFragment() {
             setTextColor(Color.WHITE)
             textSize = 20f
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, (32 * dp).toInt())
+            setPadding(0, 0, 0, (16 * dp).toInt())
             layoutParams = LinearLayout.LayoutParams(MATCH, WRAP)
         })
 
@@ -78,13 +78,13 @@ class PinLockDialogFragment : DialogFragment() {
             setTextColor(Color.WHITE)
             textSize = 28f
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, (40 * dp).toInt())
+            setPadding(0, 0, 0, (16 * dp).toInt())
             layoutParams = LinearLayout.LayoutParams(MATCH, WRAP)
         }
         dotsView = dots
         root.addView(dots)
 
-        root.addView(buildKeypad(dp))
+        root.addView(buildKeypad())
 
         root.addView(View(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH, 0, 1f)
@@ -93,10 +93,8 @@ class PinLockDialogFragment : DialogFragment() {
         return root
     }
 
-    private fun buildKeypad(dp: Float): LinearLayout {
-        val cellPadV = (20 * dp).toInt()
+    private fun buildKeypad(): LinearLayout {
         val MATCH = LinearLayout.LayoutParams.MATCH_PARENT
-        val WRAP = LinearLayout.LayoutParams.WRAP_CONTENT
 
         val rows = listOf(
             listOf("1", "2", "3"),
@@ -107,23 +105,22 @@ class PinLockDialogFragment : DialogFragment() {
 
         val container = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(MATCH, WRAP)
+            layoutParams = LinearLayout.LayoutParams(MATCH, 0, 3f)
         }
 
         rows.forEach { row ->
             val rowLayout = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(MATCH, WRAP)
+                layoutParams = LinearLayout.LayoutParams(MATCH, 0, 1f)
             }
             row.forEach { key ->
                 rowLayout.addView(TextView(requireContext()).apply {
                     text = key
-                    textSize = 30f
+                    textSize = 28f
                     gravity = Gravity.CENTER
                     setTextColor(if (key.isEmpty()) Color.TRANSPARENT else Color.WHITE)
-                    setPadding(0, cellPadV, 0, cellPadV)
                     setOnClickListener { onKey(key) }
-                    layoutParams = LinearLayout.LayoutParams(0, WRAP, 1f)
+                    layoutParams = LinearLayout.LayoutParams(0, MATCH, 1f)
                 })
             }
             container.addView(rowLayout)
