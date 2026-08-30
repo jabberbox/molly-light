@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7 (2026-08-30)
+
+Thank you to everyone who has downloaded Molly Light -- this release marks 10,000 downloads.
+
+### Changed
+- **Signing guard** — release builds now fail loudly at configure time if no keystore is configured, instead of silently producing an unsigned APK that fails to install.
+
+---
+
 ## 1.6 (2026-07-27)
 
 ### Fixed
