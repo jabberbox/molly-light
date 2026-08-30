@@ -6,7 +6,11 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.ScrollView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -14,6 +18,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.widget.NestedScrollView;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.signal.core.util.ConfigurationUtil;
 import org.signal.core.util.ServiceUtil;
@@ -263,6 +269,47 @@ public abstract class BaseActivity extends AppCompatActivity {
     for (ActivityManager.AppTask task : tasks) {
       if (task.getTaskInfo().id == taskId) {
         return task;
+      }
+    }
+    return null;
+  }
+
+  // LP3 scroll wheel: scancodes 19 (CCW=up) and 20 (CW=down) arrive as KeyEvents.
+  // Walk the visible hierarchy to find the first RecyclerView or ScrollView that can scroll
+  // in the requested direction, then nudge it. Each notch fires one DOWN+UP pair, so we
+  // only act on ACTION_DOWN to avoid double-scrolling.
+  private static final int SCANCODE_WHEEL_CCW = 19;
+  private static final int SCANCODE_WHEEL_CW  = 20;
+
+  @Override
+  public boolean dispatchKeyEvent(KeyEvent event) {
+    if (event.getAction() == KeyEvent.ACTION_DOWN) {
+      int scan = event.getScanCode();
+      if (scan == SCANCODE_WHEEL_CCW || scan == SCANCODE_WHEEL_CW) {
+        int direction = (scan == SCANCODE_WHEEL_CW) ? 1 : -1;
+        View root     = getWindow().getDecorView();
+        View target   = findScrollableView(root, direction);
+        if (target != null) {
+          int px = (int) (getResources().getDisplayMetrics().density * 120);
+          target.scrollBy(0, direction * px);
+          return true;
+        }
+      }
+    }
+    return super.dispatchKeyEvent(event);
+  }
+
+  private @Nullable View findScrollableView(@NonNull View view, int direction) {
+    if (view.getVisibility() != View.VISIBLE) return null;
+    if ((view instanceof RecyclerView || view instanceof ScrollView || view instanceof NestedScrollView)
+        && view.canScrollVertically(direction)) {
+      return view;
+    }
+    if (view instanceof ViewGroup) {
+      ViewGroup group = (ViewGroup) view;
+      for (int i = group.getChildCount() - 1; i >= 0; i--) {
+        View found = findScrollableView(group.getChildAt(i), direction);
+        if (found != null) return found;
       }
     }
     return null;

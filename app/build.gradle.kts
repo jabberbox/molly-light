@@ -106,6 +106,10 @@ android {
     }
     val releaseKeystorePath = System.getenv("CI_KEYSTORE_PATH") ?: localProperties.getProperty("RELEASE_KEYSTORE_PATH")
 
+    if (ciEnabled && releaseKeystorePath == null) {
+      throw GradleException("CI release build requires CI_KEYSTORE_PATH env var or RELEASE_KEYSTORE_PATH in local.properties — refusing to produce an unsigned APK")
+    }
+
     releaseKeystorePath?.let { path ->
       create("ci") {
         println("Signing release build with keystore: '$path'")
