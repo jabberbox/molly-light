@@ -15,6 +15,8 @@ A minimal reskin of Molly, inspired by the [Light Phone III](https://www.theligh
 > Signal contacts and account. For the official, actively-maintained app, see
 > upstream: [mollyim/mollyim-android](https://github.com/mollyim/mollyim-android).
 
+If Molly Light is useful to you, [buy me a coffee](https://ko-fi.com/jabberbox) to help keep it going.
+
 ## Screenshots
 
 <table>
